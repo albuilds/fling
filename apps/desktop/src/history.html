@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fling History</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0d12;
+      --surface:   #15151e;
+      --border:    #222230;
+      --accent:    #7c5af8;
+      --accent-glow: rgba(124, 90, 248, 0.25);
+      --text:      #e8e8f0;
+      --muted:     #6b6b80;
+      --danger:    #f85a5a;
+      --success:   #5af8a0;
+      --radius:    12px;
+      --font:      -apple-system, 'Segoe UI', sans-serif;
+    }
+
+    html {
+      background: var(--bg);
+      scrollbar-color: var(--border) var(--bg);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      scrollbar-color: var(--border) var(--bg);
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 58px;
+      padding: 14px 14px 14px 28px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(21, 21, 30, 0.96), var(--bg));
+      -webkit-app-region: drag;
+    }
+    header svg { color: var(--accent); flex-shrink: 0; }
+    header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      background: linear-gradient(135deg, #fff 40%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    header .version {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2px 10px;
+    }
+    .window-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 6px;
+      -webkit-app-region: no-drag;
+    }
+    .window-control {
+      width: 32px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .window-control:hover {
+      background: rgba(255,255,255,0.04);
+      border-color: var(--border);
+      color: var(--text);
+    }
+    .window-control svg { color: currentColor; }
+    .window-control.close:hover {
+      background: rgba(248, 90, 90, 0.12);
+      border-color: rgba(248, 90, 90, 0.35);
+      color: var(--danger);
+    }
+    button { -webkit-app-region: no-drag; }
+
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      scrollbar-color: var(--border) var(--bg);
+      scrollbar-width: thin;
+    }
+
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .section-header svg { color: var(--accent); }
+    .section-count {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .upload-row {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 14px;
+      padding: 13px 18px;
+      transition: background 0.15s;
+    }
+    .upload-row + .upload-row { border-top: 1px solid var(--border); }
+    .upload-row:hover { background: rgba(255,255,255,0.02); }
+
+    .thumb {
+      width: 44px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(124, 90, 248, 0.18), rgba(90, 248, 160, 0.08)),
+        var(--bg);
+      color: var(--accent);
+      overflow: hidden;
+    }
+    .thumb.video { color: var(--success); }
+    .thumb.gif { color: #f8c45a; }
+
+    .upload-meta {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .upload-meta strong {
+      overflow: hidden;
+      color: var(--text);
+      font-size: 13.5px;
+      font-weight: 500;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .upload-meta span {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .upload-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status {
+      color: var(--success);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    .btn-icon {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, transform 0.1s;
+    }
+    .btn-icon:hover { border-color: var(--accent); color: var(--text); }
+    .btn-icon:active { transform: scale(0.97); }
+
+    footer {
+      padding: 14px 28px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .hint {
+      margin-right: auto;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    *::-webkit-scrollbar { width: 5px; height: 5px; }
+    *::-webkit-scrollbar-track { background: var(--bg); }
+    *::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+    *::-webkit-scrollbar-thumb:hover { background: #303044; }
+
+    @media (max-width: 620px) {
+      .upload-row {
+        grid-template-columns: 40px minmax(0, 1fr);
+      }
+      .upload-actions {
+        grid-column: 2;
+        justify-content: flex-start;
+      }
+      .status { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+  </svg>
+  <h1>Fling</h1>
+  <span class="version">v0.1.0</span>
+  <div class="window-controls" aria-label="Window controls">
+    <button class="window-control" type="button" title="Minimize" aria-label="Minimize" data-window-action="minimize">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M6 18h12"/>
+      </svg>
+    </button>
+    <button class="window-control" type="button" title="Maximize" aria-label="Maximize" data-window-action="toggleMaximize">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <rect x="6" y="6" width="12" height="12" rx="1.5"/>
+      </svg>
+    </button>
+    <button class="window-control close" type="button" title="Close" aria-label="Close" data-window-action="close">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M7 7l10 10M17 7 7 17"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="section">
+    <div class="section-header">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l4 2"/>
+      </svg>
+      Recent Uploads
+      <span class="section-count">16 local items</span>
+    </div>
+
+    <div id="uploads"></div>
+  </div>
+</main>
+
+<footer>
+  <span class="hint">Showing recent uploads stored on this device</span>
+</footer>
+
+<script>
+  document.querySelectorAll('[data-window-action]').forEach(button => {
+    button.addEventListener('click', () => {
+      window.flingWindow?.[button.dataset.windowAction]?.()
+    })
+  })
+
+  const uploads = [
+    { name: 'billing-dashboard-region.png', type: 'image', time: 'Today, 4:42 PM', size: '1.8 MB', url: 'https://fling.local/u/8Hn2kQ' },
+    { name: 'onboarding-flow-feedback.mp4', type: 'video', time: 'Today, 3:18 PM', size: '12.4 MB', url: 'https://fling.local/u/2Mpa91' },
+    { name: 'error-state-repro.gif', type: 'gif', time: 'Today, 1:07 PM', size: '4.6 MB', url: 'https://fling.local/u/Vk91pd' },
+    { name: 'profile-menu-capture.png', type: 'image', time: 'Yesterday, 6:11 PM', size: '940 KB', url: 'https://fling.local/u/R77cda' },
+    { name: 'settings-shortcuts.png', type: 'image', time: 'Yesterday, 2:36 PM', size: '1.2 MB', url: 'https://fling.local/u/F3dka0' },
+    { name: 'checkout-animation.mp4', type: 'video', time: 'Monday, 11:24 AM', size: '18.9 MB', url: 'https://fling.local/u/Px409a' },
+    { name: 'mobile-history-layout.png', type: 'image', time: 'Monday, 9:03 AM', size: '768 KB', url: 'https://fling.local/u/Hys5wL' },
+    { name: 'release-notes-snippet.png', type: 'image', time: 'Jun 8, 5:30 PM', size: '1.5 MB', url: 'https://fling.local/u/Cn82qV' },
+    { name: 'sidebar-hover-state.gif', type: 'gif', time: 'Jun 8, 1:16 PM', size: '3.3 MB', url: 'https://fling.local/u/J9dz1e' },
+    { name: 'full-screen-capture.png', type: 'image', time: 'Jun 7, 8:48 PM', size: '2.1 MB', url: 'https://fling.local/u/A4mss2' },
+    { name: 'account-switcher.png', type: 'image', time: 'Jun 7, 10:09 AM', size: '886 KB', url: 'https://fling.local/u/N1vc20' },
+    { name: 'table-filter-bug.mp4', type: 'video', time: 'Jun 6, 4:55 PM', size: '9.7 MB', url: 'https://fling.local/u/Zq0r3b' },
+    { name: 'toast-success-state.png', type: 'image', time: 'Jun 6, 12:18 PM', size: '612 KB', url: 'https://fling.local/u/Xa88lp' },
+    { name: 'upload-quality-select.png', type: 'image', time: 'Jun 5, 3:41 PM', size: '734 KB', url: 'https://fling.local/u/Km42ty' },
+    { name: 'region-selection-demo.gif', type: 'gif', time: 'Jun 5, 9:22 AM', size: '5.1 MB', url: 'https://fling.local/u/Qv2nd9' },
+    { name: 'welcome-screen.png', type: 'image', time: 'Jun 4, 7:05 PM', size: '1.1 MB', url: 'https://fling.local/u/W03xaa' },
+  ]
+
+  const icons = {
+    image: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="10" r="1.5"/><path d="m21 15-5-5L5 19"/>',
+    video: '<rect x="3" y="5" width="15" height="14" rx="2"/><path d="m18 10 4-2v8l-4-2"/>',
+    gif: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 12h3M7 15h2M12 10v6M15 10h3M15 13h2"/>',
+  }
+
+  function renderUploads() {
+    const container = document.getElementById('uploads')
+    container.innerHTML = uploads.slice(0, 20).map(upload => `
+      <div class="upload-row">
+        <div class="thumb ${upload.type}" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            ${icons[upload.type]}
+          </svg>
+        </div>
+        <div class="upload-meta">
+          <strong>${upload.name}</strong>
+          <span>${upload.time} - ${upload.size} - ${upload.url}</span>
+        </div>
+        <div class="upload-actions">
+          <span class="status">Uploaded</span>
+          <button class="btn-icon" type="button" title="Copy link" aria-label="Copy link" data-copy="${upload.url}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2"/><rect x="2" y="2" width="13" height="13" rx="2"/>
+            </svg>
+          </button>
+          <button class="btn-icon" type="button" title="Open link" aria-label="Open link">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 17 17 7"/><path d="M7 7h10v10"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `).join('')
+  }
+
+  renderUploads()
+
+  document.addEventListener('click', e => {
+    const button = e.target.closest('[data-copy]')
+    if (!button) return
+    navigator.clipboard?.writeText(button.dataset.copy)
+  })
+</script>
+</body>
+</html>
