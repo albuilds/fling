@@ -4,7 +4,7 @@
   "description": "",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "tsc && electron ."
+    "dev": "electronmon ."
   },
   "keywords": [],
   "author": "",
@@ -13,6 +13,7 @@
   "devDependencies": {
     "@types/node": "^25.9.3",
     "electron": "^42.4.0",
+    "electronmon": "^2.0.4",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }
