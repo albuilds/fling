@@ -4,7 +4,8 @@
   "description": "",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "electronmon ."
+    "build": "tsc",
+    "dev": "npm run build && electronmon ."
   },
   "keywords": [],
   "author": "",

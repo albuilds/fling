@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fling Screenshot</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #7c5af8;
+      --accent-hover: #8d70ff;
+      --accent-glow: rgba(124, 90, 248, 0.3);
+      --text: #ffffff;
+      --muted: rgba(255, 255, 255, 0.68);
+      --panel: rgba(16, 16, 24, 0.92);
+      --selection: rgba(124, 90, 248, 0.12);
+      --selection-border: rgba(160, 138, 255, 0.95);
+      --font: -apple-system, 'Segoe UI', sans-serif;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+      color: var(--text);
+      font-family: var(--font);
+      user-select: none;
+      cursor: crosshair;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 4, 8, 0.48);
+    }
+
+    .hint {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      z-index: 2;
+      transform: translateX(-50%);
+      padding: 8px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .selection {
+      position: fixed;
+      z-index: 3;
+      display: none;
+      min-width: 2px;
+      min-height: 2px;
+      border: 2px solid var(--selection-border);
+      background: var(--selection);
+      box-shadow:
+        0 0 0 9999px rgba(4, 4, 8, 0.24),
+        0 0 0 1px rgba(255, 255, 255, 0.16) inset;
+      pointer-events: none;
+    }
+
+    .selection.visible {
+      display: block;
+    }
+
+    .selection::before,
+    .selection::after {
+      content: '';
+      position: absolute;
+      background: rgba(255, 255, 255, 0.52);
+    }
+
+    .selection::before {
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      transform: translateY(-50%);
+    }
+
+    .selection::after {
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 1px;
+      transform: translateX(-50%);
+    }
+
+    .toolbar {
+      position: fixed;
+      z-index: 4;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 7px;
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+      cursor: default;
+    }
+
+    .toolbar.visible {
+      display: flex;
+    }
+
+    button {
+      height: 32px;
+      border: 0;
+      border-radius: 7px;
+      padding: 0 14px;
+      color: var(--text);
+      font: 600 12px/1 var(--font);
+      cursor: pointer;
+    }
+
+    .screenshot-button {
+      background: var(--accent);
+      box-shadow: 0 0 18px var(--accent-glow);
+    }
+
+    .screenshot-button:hover {
+      background: var(--accent-hover);
+    }
+
+    .cancel-button {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+    }
+
+    .cancel-button:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .status {
+      display: none;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 0 6px;
+    }
+
+    .status.visible {
+      display: inline;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay" id="overlay"></div>
+  <div class="hint">Drag to select a screenshot area</div>
+  <div class="selection" id="selection"></div>
+  <div class="toolbar" id="toolbar">
+    <button class="screenshot-button" type="button" id="screenshotButton">screenshot</button>
+    <button class="cancel-button" type="button" id="cancelButton">Cancel</button>
+    <span class="status" id="status">Capture coming soon</span>
+  </div>
+
+  <script>
+    const overlay = document.getElementById('overlay')
+    const selection = document.getElementById('selection')
+    const toolbar = document.getElementById('toolbar')
+    const status = document.getElementById('status')
+    const screenshotButton = document.getElementById('screenshotButton')
+    const cancelButton = document.getElementById('cancelButton')
+
+    let startX = 0
+    let startY = 0
+    let isDragging = false
+    let selectedRect = null
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max)
+    }
+
+    function getRect(currentX, currentY) {
+      const left = Math.min(startX, currentX)
+      const top = Math.min(startY, currentY)
+      const width = Math.abs(currentX - startX)
+      const height = Math.abs(currentY - startY)
+      return { left, top, width, height }
+    }
+
+    function setSelectionRect(rect) {
+      selection.style.left = `${rect.left}px`
+      selection.style.top = `${rect.top}px`
+      selection.style.width = `${rect.width}px`
+      selection.style.height = `${rect.height}px`
+    }
+
+    function setToolbarPosition(rect) {
+      const gap = 10
+      toolbar.classList.add('visible')
+
+      const toolbarRect = toolbar.getBoundingClientRect()
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+      const below = rect.top + rect.height + gap
+      const top = below + toolbarRect.height <= viewportHeight
+        ? below
+        : Math.max(gap, rect.top - toolbarRect.height - gap)
+      const centeredLeft = rect.left + (rect.width / 2) - (toolbarRect.width / 2)
+
+      toolbar.style.left = `${clamp(centeredLeft, gap, viewportWidth - toolbarRect.width - gap)}px`
+      toolbar.style.top = `${clamp(top, gap, viewportHeight - toolbarRect.height - gap)}px`
+    }
+
+    function hideToolbarStatus() {
+      status.classList.remove('visible')
+    }
+
+    overlay.addEventListener('pointerdown', event => {
+      if (event.button !== 0) return
+      isDragging = true
+      startX = event.clientX
+      startY = event.clientY
+      selectedRect = null
+      toolbar.classList.remove('visible')
+      hideToolbarStatus()
+      selection.classList.add('visible')
+      setSelectionRect({ left: startX, top: startY, width: 0, height: 0 })
+      overlay.setPointerCapture(event.pointerId)
+    })
+
+    overlay.addEventListener('pointermove', event => {
+      if (!isDragging) return
+      const rect = getRect(event.clientX, event.clientY)
+      setSelectionRect(rect)
+    })
+
+    overlay.addEventListener('pointerup', event => {
+      if (!isDragging) return
+      isDragging = false
+      overlay.releasePointerCapture(event.pointerId)
+
+      const rect = getRect(event.clientX, event.clientY)
+      if (rect.width < 8 || rect.height < 8) {
+        selection.classList.remove('visible')
+        return
+      }
+
+      selectedRect = rect
+      setSelectionRect(rect)
+      setToolbarPosition(rect)
+    })
+
+    screenshotButton.addEventListener('click', () => {
+      window.flingScreenshot?.requestScreenshot?.(selectedRect)
+    })
+
+    cancelButton.addEventListener('click', () => {
+      window.flingScreenshot?.closeOverlay?.()
+    })
+
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        window.flingScreenshot?.closeOverlay?.()
+      }
+    })
+
+    window.flingScreenshot?.onPending?.(() => {
+      status.classList.add('visible')
+    })
+  </script>
+</body>
+</html>
