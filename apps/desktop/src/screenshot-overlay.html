@@ -114,6 +114,48 @@
       display: flex;
     }
 
+    .capture-options {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 2px;
+    }
+
+    .capture-option {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 28px;
+      padding: 0 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+      font: 600 11px/1 var(--font);
+      cursor: pointer;
+    }
+
+    .capture-option:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .capture-option input {
+      width: 12px;
+      height: 12px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .capture-option.disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+    }
+
+    .capture-option.disabled input {
+      cursor: not-allowed;
+    }
+
     button {
       height: 32px;
       border: 0;
@@ -131,6 +173,12 @@
 
     .screenshot-button:hover {
       background: var(--accent-hover);
+    }
+
+    .screenshot-button:disabled {
+      opacity: 0.52;
+      cursor: not-allowed;
+      box-shadow: none;
     }
 
     .cancel-button {
@@ -160,9 +208,23 @@
   <div class="hint">Drag to select a screenshot area</div>
   <div class="selection" id="selection"></div>
   <div class="toolbar" id="toolbar">
+    <div class="capture-options" aria-label="Screenshot options">
+      <label class="capture-option">
+        <input id="copyOption" type="checkbox" />
+        Copy
+      </label>
+      <label class="capture-option">
+        <input id="saveOption" type="checkbox" checked />
+        Save
+      </label>
+      <label class="capture-option disabled" title="Server upload is coming later">
+        <input id="uploadOption" type="checkbox" disabled />
+        Upload
+      </label>
+    </div>
     <button class="screenshot-button" type="button" id="screenshotButton">screenshot</button>
     <button class="cancel-button" type="button" id="cancelButton">Cancel</button>
-    <span class="status" id="status">Capture coming soon</span>
+    <span class="status" id="status">Saving...</span>
   </div>
 
   <script>
@@ -172,6 +234,11 @@
     const status = document.getElementById('status')
     const screenshotButton = document.getElementById('screenshotButton')
     const cancelButton = document.getElementById('cancelButton')
+    const copyOption = document.getElementById('copyOption')
+    const saveOption = document.getElementById('saveOption')
+    const uploadOption = document.getElementById('uploadOption')
+    const screenshotSound = new Audio('assets/sounds/screenshot-click.mp3')
+    screenshotSound.preload = 'auto'
 
     let startX = 0
     let startY = 0
@@ -218,6 +285,23 @@
       status.classList.remove('visible')
     }
 
+    function playScreenshotSound() {
+      screenshotSound.currentTime = 0
+      screenshotSound.play().catch(() => {})
+    }
+
+    function getScreenshotOptions() {
+      return {
+        copyToClipboard: copyOption.checked,
+        saveLocally: saveOption.checked,
+        uploadToServer: uploadOption.checked,
+      }
+    }
+
+    function updateScreenshotButtonState() {
+      screenshotButton.disabled = !copyOption.checked && !saveOption.checked
+    }
+
     overlay.addEventListener('pointerdown', event => {
       if (event.button !== 0) return
       isDragging = true
@@ -254,12 +338,19 @@
     })
 
     screenshotButton.addEventListener('click', () => {
-      window.flingScreenshot?.requestScreenshot?.(selectedRect)
+      playScreenshotSound()
+      screenshotButton.disabled = true
+      status.textContent = 'Capturing...'
+      status.classList.add('visible')
+      window.flingScreenshot?.requestScreenshot?.(selectedRect, getScreenshotOptions())
     })
 
     cancelButton.addEventListener('click', () => {
       window.flingScreenshot?.closeOverlay?.()
     })
+
+    copyOption.addEventListener('change', updateScreenshotButtonState)
+    saveOption.addEventListener('change', updateScreenshotButtonState)
 
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape') {
@@ -268,6 +359,18 @@
     })
 
     window.flingScreenshot?.onPending?.(() => {
+      status.textContent = 'Capturing...'
+      status.classList.add('visible')
+    })
+
+    window.flingScreenshot?.onSaved?.((_event, savedPath) => {
+      status.textContent = `Saved to ${savedPath}`
+      status.classList.add('visible')
+    })
+
+    window.flingScreenshot?.onError?.(() => {
+      screenshotButton.disabled = false
+      status.textContent = 'Could not save screenshot'
       status.classList.add('visible')
     })
   </script>

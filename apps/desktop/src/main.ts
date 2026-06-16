@@ -4,8 +4,22 @@
 
 console.log("Start app!");
 
-import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, globalShortcut, screen } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, globalShortcut, screen, desktopCapturer, clipboard } from 'electron'
+import fs from 'fs/promises'
 import path from 'path'
+
+type ScreenshotRect = {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+type ScreenshotOptions = {
+  copyToClipboard: boolean
+  saveLocally: boolean
+  uploadToServer: boolean
+}
 
 class FlingApp {
   private tray: Tray | null = null
@@ -113,10 +127,109 @@ class FlingApp {
 
   private registerScreenshotControls() {
     ipcMain.on('screenshot-overlay:close', () => this.screenshotOverlay?.close())
-    ipcMain.on('screenshot-overlay:screenshot', () => {
-      // Placeholder for the future capture implementation.
-      this.screenshotOverlay?.webContents.send('screenshot-overlay:pending')
+    ipcMain.on('screenshot-overlay:screenshot', async (_event, rect: ScreenshotRect | null, options: Partial<ScreenshotOptions> | null) => {
+      await this.captureScreenshot(rect, options)
     })
+  }
+
+  private async captureScreenshot(rect: ScreenshotRect | null, requestedOptions: Partial<ScreenshotOptions> | null) {
+    const overlay = this.screenshotOverlay
+    if (!overlay) return
+    const options = this.normalizeScreenshotOptions(requestedOptions)
+
+    try {
+      overlay.webContents.send('screenshot-overlay:pending')
+      overlay.hide()
+      await new Promise(resolve => setTimeout(resolve, 160))
+
+      const display = screen.getPrimaryDisplay()
+      const scaleFactor = display.scaleFactor || 1
+      const captureArea = this.normalizeScreenshotRect(rect, display.bounds)
+      const source = await this.getPrimaryScreenSource(display.id, display.bounds, scaleFactor)
+      const image = source.thumbnail.crop({
+        x: Math.round(captureArea.left * scaleFactor),
+        y: Math.round(captureArea.top * scaleFactor),
+        width: Math.round(captureArea.width * scaleFactor),
+        height: Math.round(captureArea.height * scaleFactor),
+      })
+
+      let savedPath = ''
+
+      console.log("in here");
+
+      if (options.copyToClipboard) {
+        this.writeScreenshotToClipboard(image)
+      }
+
+      if (options.saveLocally) {
+        const folder = path.join(app.getPath('documents'), 'Fling Screenshots')
+        await fs.mkdir(folder, { recursive: true })
+
+        savedPath = path.join(folder, `fling-screenshot-${this.timestampForFileName()}.png`)
+        await fs.writeFile(savedPath, image.toPNG())
+      }
+
+      overlay.webContents.send('screenshot-overlay:saved', savedPath)
+      overlay.close()
+    } catch (error) {
+      console.error('Could not capture screenshot:', error)
+      if (!overlay.isDestroyed()) {
+        overlay.show()
+        overlay.webContents.send('screenshot-overlay:error')
+      }
+    }
+  }
+
+  private normalizeScreenshotOptions(options: Partial<ScreenshotOptions> | null): ScreenshotOptions {
+    return {
+      copyToClipboard: options?.copyToClipboard === true,
+      saveLocally: options?.saveLocally !== false,
+      uploadToServer: options?.uploadToServer === true,
+    }
+  }
+
+  private writeScreenshotToClipboard(image: Electron.NativeImage) {
+    if (image.isEmpty()) {
+      throw new Error("Cannot copy empty screenshot image");
+    }
+
+    clipboard.writeImage(image);
+  }
+
+  private async getPrimaryScreenSource(displayId: number, bounds: Electron.Rectangle, scaleFactor: number) {
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: {
+        width: Math.round(bounds.width * scaleFactor),
+        height: Math.round(bounds.height * scaleFactor),
+      },
+    })
+
+    return sources.find(source => source.display_id === String(displayId)) ?? sources[0]
+  }
+
+  private normalizeScreenshotRect(rect: ScreenshotRect | null, bounds: Electron.Rectangle): ScreenshotRect {
+    if (!rect || rect.width <= 0 || rect.height <= 0) {
+      return { left: 0, top: 0, width: bounds.width, height: bounds.height }
+    }
+
+    const left = Math.max(0, Math.min(rect.left, bounds.width))
+    const top = Math.max(0, Math.min(rect.top, bounds.height))
+    const right = Math.max(left, Math.min(rect.left + rect.width, bounds.width))
+    const bottom = Math.max(top, Math.min(rect.top + rect.height, bounds.height))
+
+    return {
+      left,
+      top,
+      width: right - left,
+      height: bottom - top,
+    }
+  }
+
+  private timestampForFileName() {
+    return new Date()
+      .toISOString()
+      .replace(/[:.]/g, '-')
   }
 }
 
