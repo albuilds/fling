@@ -1,540 +1,730 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fling Settings</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:        #0d0d12;
-      --surface:   #15151e;
-      --border:    #222230;
-      --accent:    #7c5af8;
-      --accent-glow: rgba(124, 90, 248, 0.25);
-      --text:      #e8e8f0;
-      --muted:     #6b6b80;
-      --danger:    #f85a5a;
-      --success:   #5af8a0;
-      --radius:    12px;
-      --font:      -apple-system, 'Segoe UI', sans-serif;
-    }
-
-    html {
-      background: var(--bg);
-      scrollbar-color: var(--border) var(--bg);
-    }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font);
-      font-size: 14px;
-      line-height: 1.5;
-      min-height: 100vh;
-      scrollbar-color: var(--border) var(--bg);
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* ── Header ── */
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-height: 58px;
-      padding: 14px 14px 14px 28px;
-      border-bottom: 1px solid var(--border);
-      background: linear-gradient(180deg, rgba(21, 21, 30, 0.96), var(--bg));
-      -webkit-app-region: drag;
-    }
-    header svg { color: var(--accent); flex-shrink: 0; }
-    header h1 {
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-      background: linear-gradient(135deg, #fff 40%, var(--accent));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    header .version {
-      margin-left: auto;
-      font-size: 11px;
-      color: var(--muted);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 2px 10px;
-    }
-    .window-controls {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-left: 6px;
-      -webkit-app-region: no-drag;
-    }
-    .window-control {
-      width: 32px;
-      height: 28px;
-      display: grid;
-      place-items: center;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      color: #fff;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
-    }
-    .window-control:hover {
-      background: rgba(255,255,255,0.04);
-      border-color: var(--border);
-      color: var(--text);
-    }
-    .window-control svg { color: currentColor; }
-    .window-control.close:hover {
-      background: rgba(248, 90, 90, 0.12);
-      border-color: rgba(248, 90, 90, 0.35);
-      color: var(--danger);
-    }
-    button, input, select, .shortcut-input { -webkit-app-region: no-drag; }
-
-    /* ── Layout ── */
-    main {
-      flex: 1;
-      overflow-y: auto;
-      padding: 28px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      scrollbar-color: var(--border) var(--bg);
-      scrollbar-width: thin;
-    }
-
-    /* ── Section card ── */
-    .section {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-    .section-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 14px 18px;
-      border-bottom: 1px solid var(--border);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .section-header svg { color: var(--accent); }
-
-    /* ── Row ── */
-    .row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 18px;
-      gap: 16px;
-      transition: background 0.15s;
-    }
-    .row + .row { border-top: 1px solid var(--border); }
-    .row:hover { background: rgba(255,255,255,0.02); }
-
-    .row-label { display: flex; flex-direction: column; gap: 2px; }
-    .row-label strong { font-size: 13.5px; font-weight: 500; color: var(--text); }
-    .row-label span { font-size: 12px; color: var(--muted); }
-
-    /* ── Toggle switch ── */
-    .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
-    .toggle input { opacity: 0; width: 0; height: 0; }
-    .slider {
-      position: absolute;
-      inset: 0;
-      background: var(--border);
-      border-radius: 24px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .slider::before {
-      content: '';
-      position: absolute;
-      width: 18px; height: 18px;
-      left: 3px; top: 3px;
-      background: #fff;
-      border-radius: 50%;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .toggle input:checked + .slider { background: var(--accent); }
-    .toggle input:checked + .slider::before {
-      transform: translateX(20px);
-      box-shadow: 0 0 8px var(--accent-glow);
-    }
-
-    /* ── Shortcut input ── */
-    .shortcut-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-    .shortcut-input {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 6px 12px;
-      min-width: 160px;
-      text-align: center;
-      font-family: 'SF Mono', 'Fira Mono', monospace;
-      font-size: 12px;
-      color: var(--text);
-      cursor: pointer;
-      user-select: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
-      outline: none;
-    }
-    .shortcut-input:hover {
-      border-color: var(--accent);
-    }
-    .shortcut-input.recording {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-glow);
-      color: var(--accent);
-    }
-    .shortcut-input .key {
-      display: inline-block;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      padding: 1px 7px;
-      font-size: 11px;
-      margin: 0 1px;
-    }
-
-    .btn-clear {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--muted);
-      font-size: 11px;
-      padding: 5px 10px;
-      cursor: pointer;
-      transition: border-color 0.15s, color 0.15s;
-    }
-    .btn-clear:hover { border-color: var(--danger); color: var(--danger); }
-
-    /* ── Save bar ── */
-    footer {
-      padding: 14px 28px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 10px;
-    }
-    .btn {
-      padding: 8px 20px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      transition: opacity 0.15s, transform 0.1s;
-    }
-    .btn:active { transform: scale(0.97); }
-    .btn-ghost {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
-    }
-    .btn-ghost:hover { border-color: var(--text); color: var(--text); }
-    .btn-primary {
-      background: var(--accent);
-      color: #fff;
-      box-shadow: 0 0 16px var(--accent-glow);
-    }
-    .btn-primary:hover { opacity: 0.88; }
-
-    .save-status {
-      font-size: 12px;
-      color: var(--success);
-      opacity: 0;
-      transition: opacity 0.3s;
-      margin-right: auto;
-    }
-    .save-status.visible { opacity: 1; }
-
-    /* ── Scrollbar ── */
-    *::-webkit-scrollbar { width: 5px; height: 5px; }
-    *::-webkit-scrollbar-track { background: var(--bg); }
-    *::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
-    *::-webkit-scrollbar-thumb:hover { background: #303044; }
-  </style>
-</head>
-<body>
-
-<header>
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-  </svg>
-  <h1>Fling</h1>
-  <span class="version">v0.1.0</span>
-  <div class="window-controls" aria-label="Window controls">
-    <button class="window-control" type="button" title="Minimize" aria-label="Minimize" data-window-action="minimize">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-        <path d="M6 18h12"/>
-      </svg>
-    </button>
-    <button class="window-control" type="button" title="Maximize" aria-label="Maximize" data-window-action="toggleMaximize">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <rect x="6" y="6" width="12" height="12" rx="1.5"/>
-      </svg>
-    </button>
-    <button class="window-control close" type="button" title="Close" aria-label="Close" data-window-action="close">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-        <path d="M7 7l10 10M17 7 7 17"/>
-      </svg>
-    </button>
-  </div>
-</header>
-
-<main>
-
-  <!-- After Capture -->
-  <div class="section">
-    <div class="section-header">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-      </svg>
-      After Capture
-    </div>
-
-    <div class="row">
-      <div class="row-label">
-        <strong>Open in browser</strong>
-        <span>Automatically open a new tab after each capture</span>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="openBrowser" checked />
-        <span class="slider"></span>
-      </label>
-    </div>
-
-    <div class="row">
-      <div class="row-label">
-        <strong>Copy URL to clipboard</strong>
-        <span>Copy the share link immediately after upload</span>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="copyUrl" checked />
-        <span class="slider"></span>
-      </label>
-    </div>
-
-    <div class="row">
-      <div class="row-label">
-        <strong>Show notification</strong>
-        <span>Display a system notification when the upload is ready</span>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="showNotif" checked />
-        <span class="slider"></span>
-      </label>
-    </div>
-  </div>
-
-  <!-- Shortcuts -->
-  <div class="section">
-    <div class="section-header">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="2" y="6" width="20" height="12" rx="2"/>
-        <path d="M6 10h0M10 10h0M14 10h0M18 10h0M8 14h8"/>
-      </svg>
-      Keyboard Shortcuts
-    </div>
-
-    <div class="row">
-      <div class="row-label">
-        <strong>Capture region</strong>
-        <span>Select and capture a region of the screen</span>
-      </div>
-      <div class="shortcut-wrap">
-        <div class="shortcut-input" data-id="captureRegion" tabindex="0"></div>
-        <button class="btn-clear" data-clear="captureRegion">Clear</button>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="row-label">
-        <strong>Capture full screen</strong>
-        <span>Instantly capture the entire screen</span>
-      </div>
-      <div class="shortcut-wrap">
-        <div class="shortcut-input" data-id="captureFullscreen" tabindex="0"></div>
-        <button class="btn-clear" data-clear="captureFullscreen">Clear</button>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="row-label">
-        <strong>Record video / GIF</strong>
-        <span>Start or stop a screen recording</span>
-      </div>
-      <div class="shortcut-wrap">
-        <div class="shortcut-input" data-id="recordVideo" tabindex="0"></div>
-        <button class="btn-clear" data-clear="recordVideo">Clear</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Upload -->
-  <div class="section">
-    <div class="section-header">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
-        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
-      </svg>
-      Upload
-    </div>
-
-    <div class="row">
-      <div class="row-label">
-        <strong>Save local copy</strong>
-        <span>Keep a copy of captures in a local folder</span>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="saveLocal" />
-        <span class="slider"></span>
-      </label>
-    </div>
-
-    <div class="row">
-      <div class="row-label">
-        <strong>Upload quality</strong>
-        <span>Higher quality means larger file sizes</span>
-      </div>
-      <select style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 10px;font-size:13px;outline:none;cursor:pointer;">
-        <option>High (default)</option>
-        <option>Medium</option>
-        <option>Low</option>
-      </select>
-    </div>
-  </div>
-
-</main>
-
-<footer>
-  <span class="save-status" id="saveStatus">&#10003; Settings saved</span>
-  <button class="btn btn-ghost" id="resetBtn">Reset defaults</button>
-  <button class="btn btn-primary" id="saveBtn">Save settings</button>
-</footer>
-
-<script>
-  document.querySelectorAll('[data-window-action]').forEach(button => {
-    button.addEventListener('click', () => {
-      window.flingWindow?.[button.dataset.windowAction]?.()
-    })
-  })
-
-  // Default shortcuts
-  const DEFAULTS = {
-    captureRegion:     { mods: ['Ctrl', 'Shift'], key: 'S' },
-    captureFullscreen: { mods: ['Ctrl', 'Shift'], key: 'F' },
-    recordVideo:       { mods: ['Ctrl', 'Shift'], key: 'R' },
-  }
-
-  const shortcuts = structuredClone(DEFAULTS)
-
-  function renderShortcut(id) {
-    const el = document.querySelector(`.shortcut-input[data-id="${id}"]`)
-    const s = shortcuts[id]
-    if (!s) { el.textContent = 'Not set'; return }
-    el.innerHTML = [...s.mods, s.key]
-      .map(k => `<span class="key">${k}</span>`)
-      .join('+')
-  }
-
-  Object.keys(shortcuts).forEach(renderShortcut)
-
-  // Shortcut recording
-  let recording = null
-
-  document.querySelectorAll('.shortcut-input').forEach(el => {
-    el.addEventListener('click', () => {
-      if (recording) {
-        document.querySelector(`.shortcut-input[data-id="${recording}"]`)?.classList.remove('recording')
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fling Settings</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
-      recording = el.dataset.id
-      el.classList.add('recording')
-      el.textContent = 'Press keys…'
-    })
-  })
 
-  document.addEventListener('keydown', e => {
-    if (!recording) return
-    e.preventDefault()
+      :root {
+        --bg: #0d0d12;
+        --surface: #15151e;
+        --border: #222230;
+        --accent: #7c5af8;
+        --accent-glow: rgba(124, 90, 248, 0.25);
+        --text: #e8e8f0;
+        --muted: #6b6b80;
+        --danger: #f85a5a;
+        --success: #5af8a0;
+        --radius: 12px;
+        --font: -apple-system, "Segoe UI", sans-serif;
+      }
 
-    const mods = []
-    if (e.ctrlKey || e.metaKey) mods.push('Ctrl')
-    if (e.altKey) mods.push('Alt')
-    if (e.shiftKey) mods.push('Shift')
+      html {
+        background: var(--bg);
+        scrollbar-color: var(--border) var(--bg);
+      }
 
-    const ignored = ['Control', 'Alt', 'Shift', 'Meta']
-    if (ignored.includes(e.key)) return
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font);
+        font-size: 14px;
+        line-height: 1.5;
+        min-height: 100vh;
+        scrollbar-color: var(--border) var(--bg);
+        display: flex;
+        flex-direction: column;
+      }
 
-    const key = e.key.length === 1 ? e.key.toUpperCase() : e.key
-    shortcuts[recording] = { mods, key }
+      /* ── Header ── */
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 58px;
+        padding: 14px 14px 14px 28px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(21, 21, 30, 0.96), var(--bg));
+        -webkit-app-region: drag;
+      }
+      header svg {
+        color: var(--accent);
+        flex-shrink: 0;
+      }
+      header h1 {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        background: linear-gradient(135deg, #fff 40%, var(--accent));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      header .version {
+        margin-left: auto;
+        font-size: 11px;
+        color: var(--muted);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 2px 10px;
+      }
+      .window-controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: 6px;
+        -webkit-app-region: no-drag;
+      }
+      .window-control {
+        width: 32px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        color: #fff;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          border-color 0.15s,
+          color 0.15s;
+      }
+      .window-control:hover {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: var(--border);
+        color: var(--text);
+      }
+      .window-control svg {
+        color: currentColor;
+      }
+      .window-control.close:hover {
+        background: rgba(248, 90, 90, 0.12);
+        border-color: rgba(248, 90, 90, 0.35);
+        color: var(--danger);
+      }
+      button,
+      input,
+      select,
+      .shortcut-input {
+        -webkit-app-region: no-drag;
+      }
 
-    const el = document.querySelector(`.shortcut-input[data-id="${recording}"]`)
-    el.classList.remove('recording')
-    recording = null
-    renderShortcut(Object.keys(shortcuts).find(id => shortcuts[id] === shortcuts[id]))
+      /* ── Layout ── */
+      main {
+        flex: 1;
+        overflow-y: auto;
+        padding: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        scrollbar-color: var(--border) var(--bg);
+        scrollbar-width: thin;
+      }
 
-    // Re-render all (the object mutated in place)
-    Object.keys(shortcuts).forEach(renderShortcut)
-  })
+      /* ── Section card ── */
+      .section {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .section-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .section-header svg {
+        color: var(--accent);
+      }
 
-  document.addEventListener('click', e => {
-    if (!recording) return
-    if (!e.target.classList.contains('shortcut-input')) {
-      const el = document.querySelector(`.shortcut-input[data-id="${recording}"]`)
-      el?.classList.remove('recording')
-      renderShortcut(recording)
-      recording = null
-    }
-  })
+      /* ── Row ── */
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        gap: 16px;
+        transition: background 0.15s;
+      }
+      .row + .row {
+        border-top: 1px solid var(--border);
+      }
+      .row:hover {
+        background: rgba(255, 255, 255, 0.02);
+      }
 
-  // Clear buttons
-  document.querySelectorAll('[data-clear]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.clear
-      shortcuts[id] = null
-      renderShortcut(id)
-    })
-  })
+      .row-label {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .row-label strong {
+        font-size: 13.5px;
+        font-weight: 500;
+        color: var(--text);
+      }
+      .row-label span {
+        font-size: 12px;
+        color: var(--muted);
+      }
 
-  // Reset defaults
-  document.getElementById('resetBtn').addEventListener('click', () => {
-    Object.assign(shortcuts, structuredClone(DEFAULTS))
-    Object.keys(shortcuts).forEach(renderShortcut)
-    document.getElementById('openBrowser').checked = true
-    document.getElementById('copyUrl').checked = true
-    document.getElementById('showNotif').checked = true
-    document.getElementById('saveLocal').checked = false
-  })
+      /* ── Toggle switch ── */
+      .toggle {
+        position: relative;
+        width: 44px;
+        height: 24px;
+        flex-shrink: 0;
+      }
+      .toggle input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .slider {
+        position: absolute;
+        inset: 0;
+        background: var(--border);
+        border-radius: 24px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .slider::before {
+        content: "";
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        left: 3px;
+        top: 3px;
+        background: #fff;
+        border-radius: 50%;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+      }
+      .toggle input:checked + .slider {
+        background: var(--accent);
+      }
+      .toggle input:checked + .slider::before {
+        transform: translateX(20px);
+        box-shadow: 0 0 8px var(--accent-glow);
+      }
 
-  // Save (stub — wire to IPC later)
-  document.getElementById('saveBtn').addEventListener('click', () => {
-    const status = document.getElementById('saveStatus')
-    status.classList.add('visible')
-    setTimeout(() => status.classList.remove('visible'), 2500)
-  })
-</script>
-</body>
+      /* ── Shortcut input ── */
+      .shortcut-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .shortcut-input {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 12px;
+        min-width: 160px;
+        text-align: center;
+        font-family: "SF Mono", "Fira Mono", monospace;
+        font-size: 12px;
+        color: var(--text);
+        cursor: pointer;
+        user-select: none;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+        outline: none;
+      }
+      .shortcut-input:hover {
+        border-color: var(--accent);
+      }
+      .shortcut-input.recording {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+        color: var(--accent);
+      }
+      .shortcut-input .key {
+        display: inline-block;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 1px 7px;
+        font-size: 11px;
+        margin: 0 1px;
+      }
+
+      .btn-clear {
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--muted);
+        font-size: 11px;
+        padding: 5px 10px;
+        cursor: pointer;
+        transition:
+          border-color 0.15s,
+          color 0.15s;
+      }
+      .btn-clear:hover {
+        border-color: var(--danger);
+        color: var(--danger);
+      }
+
+      /* ── Save bar ── */
+      footer {
+        padding: 14px 28px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      .btn {
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition:
+          opacity 0.15s,
+          transform 0.1s;
+      }
+      .btn:active {
+        transform: scale(0.97);
+      }
+      .btn-ghost {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+      }
+      .btn-ghost:hover {
+        border-color: var(--text);
+        color: var(--text);
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+        box-shadow: 0 0 16px var(--accent-glow);
+      }
+      .btn-primary:hover {
+        opacity: 0.88;
+      }
+
+      .save-status {
+        font-size: 12px;
+        color: var(--success);
+        opacity: 0;
+        transition: opacity 0.3s;
+        margin-right: auto;
+      }
+      .save-status.visible {
+        opacity: 1;
+      }
+
+      /* ── Scrollbar ── */
+      *::-webkit-scrollbar {
+        width: 5px;
+        height: 5px;
+      }
+      *::-webkit-scrollbar-track {
+        background: var(--bg);
+      }
+      *::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 10px;
+      }
+      *::-webkit-scrollbar-thumb:hover {
+        background: #303044;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <svg
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+      </svg>
+      <h1>Fling</h1>
+      <span class="version">v0.1.0</span>
+      <div class="window-controls" aria-label="Window controls">
+        <button
+          class="window-control"
+          type="button"
+          title="Minimize"
+          aria-label="Minimize"
+          data-window-action="minimize"
+        >
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+          >
+            <path d="M6 18h12" />
+          </svg>
+        </button>
+        <button
+          class="window-control"
+          type="button"
+          title="Maximize"
+          aria-label="Maximize"
+          data-window-action="toggleMaximize"
+        >
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <rect x="6" y="6" width="12" height="12" rx="1.5" />
+          </svg>
+        </button>
+        <button
+          class="window-control close"
+          type="button"
+          title="Close"
+          aria-label="Close"
+          data-window-action="close"
+        >
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+          >
+            <path d="M7 7l10 10M17 7 7 17" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <!-- After Capture -->
+      <div class="section">
+        <div class="section-header">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+          After Capture
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Open in browser</strong>
+            <span>Automatically open a new tab after each capture</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="openBrowser" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Copy URL to clipboard</strong>
+            <span>Copy the share link immediately after upload</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="copyUrl" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Show notification</strong>
+            <span>Display a system notification when the upload is ready</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="showNotif" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Shortcuts -->
+      <div class="section">
+        <div class="section-header">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="2" y="6" width="20" height="12" rx="2" />
+            <path d="M6 10h0M10 10h0M14 10h0M18 10h0M8 14h8" />
+          </svg>
+          Keyboard Shortcuts
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Capture region</strong>
+            <span>Select and capture a region of the screen</span>
+          </div>
+          <div class="shortcut-wrap">
+            <div
+              class="shortcut-input"
+              data-id="captureRegion"
+              tabindex="0"
+            ></div>
+            <button class="btn-clear" data-clear="captureRegion">Clear</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Capture full screen</strong>
+            <span>Instantly capture the entire screen</span>
+          </div>
+          <div class="shortcut-wrap">
+            <div
+              class="shortcut-input"
+              data-id="captureFullscreen"
+              tabindex="0"
+            ></div>
+            <button class="btn-clear" data-clear="captureFullscreen">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Record video / GIF</strong>
+            <span>Start or stop a screen recording</span>
+          </div>
+          <div class="shortcut-wrap">
+            <div
+              class="shortcut-input"
+              data-id="recordVideo"
+              tabindex="0"
+            ></div>
+            <button class="btn-clear" data-clear="recordVideo">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload -->
+      <div class="section">
+        <div class="section-header">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="16 16 12 12 8 16" />
+            <line x1="12" y1="12" x2="12" y2="21" />
+            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+          </svg>
+          Upload
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Save local copy</strong>
+            <span>Keep a copy of captures in a local folder</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="saveLocal" />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Upload quality</strong>
+            <span>Higher quality means larger file sizes</span>
+          </div>
+          <select
+            style="
+              background: var(--bg);
+              border: 1px solid var(--border);
+              color: var(--text);
+              border-radius: 8px;
+              padding: 6px 10px;
+              font-size: 13px;
+              outline: none;
+              cursor: pointer;
+            "
+          >
+            <option>High (default)</option>
+            <option>Medium</option>
+            <option>Low</option>
+          </select>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <span class="save-status" id="saveStatus">&#10003; Settings saved</span>
+      <button class="btn btn-ghost" id="resetBtn">Reset defaults</button>
+      <button class="btn btn-primary" id="saveBtn">Save settings</button>
+    </footer>
+
+    <script>
+      document.querySelectorAll("[data-window-action]").forEach((button) => {
+        button.addEventListener("click", () => {
+          window.flingWindow?.[button.dataset.windowAction]?.();
+        });
+      });
+
+      // Default shortcuts
+      const DEFAULTS = {
+        captureRegion: { mods: ["Ctrl", "Shift"], key: "S" },
+        captureFullscreen: { mods: ["Ctrl", "Shift"], key: "F" },
+        recordVideo: { mods: ["Ctrl", "Shift"], key: "R" },
+      };
+
+      const shortcuts = structuredClone(DEFAULTS);
+
+      function renderShortcut(id) {
+        const el = document.querySelector(`.shortcut-input[data-id="${id}"]`);
+        const s = shortcuts[id];
+        if (!s) {
+          el.textContent = "Not set";
+          return;
+        }
+        el.innerHTML = [...s.mods, s.key]
+          .map((k) => `<span class="key">${k}</span>`)
+          .join("+");
+      }
+
+      Object.keys(shortcuts).forEach(renderShortcut);
+
+      // Shortcut recording
+      let recording = null;
+
+      document.querySelectorAll(".shortcut-input").forEach((el) => {
+        el.addEventListener("click", () => {
+          if (recording) {
+            document
+              .querySelector(`.shortcut-input[data-id="${recording}"]`)
+              ?.classList.remove("recording");
+          }
+          recording = el.dataset.id;
+          el.classList.add("recording");
+          el.textContent = "Press keys…";
+        });
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (!recording) return;
+        e.preventDefault();
+
+        const mods = [];
+        if (e.ctrlKey || e.metaKey) mods.push("Ctrl");
+        if (e.altKey) mods.push("Alt");
+        if (e.shiftKey) mods.push("Shift");
+
+        const ignored = ["Control", "Alt", "Shift", "Meta"];
+        if (ignored.includes(e.key)) return;
+
+        const key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+        shortcuts[recording] = { mods, key };
+
+        const el = document.querySelector(
+          `.shortcut-input[data-id="${recording}"]`,
+        );
+        el.classList.remove("recording");
+        recording = null;
+        renderShortcut(
+          Object.keys(shortcuts).find((id) => shortcuts[id] === shortcuts[id]),
+        );
+
+        // Re-render all (the object mutated in place)
+        Object.keys(shortcuts).forEach(renderShortcut);
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!recording) return;
+        if (!e.target.classList.contains("shortcut-input")) {
+          const el = document.querySelector(
+            `.shortcut-input[data-id="${recording}"]`,
+          );
+          el?.classList.remove("recording");
+          renderShortcut(recording);
+          recording = null;
+        }
+      });
+
+      // Clear buttons
+      document.querySelectorAll("[data-clear]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.clear;
+          shortcuts[id] = null;
+          renderShortcut(id);
+        });
+      });
+
+      // Reset defaults
+      document.getElementById("resetBtn").addEventListener("click", () => {
+        Object.assign(shortcuts, structuredClone(DEFAULTS));
+        Object.keys(shortcuts).forEach(renderShortcut);
+        document.getElementById("openBrowser").checked = true;
+        document.getElementById("copyUrl").checked = true;
+        document.getElementById("showNotif").checked = true;
+        document.getElementById("saveLocal").checked = false;
+      });
+
+      // Save (stub — wire to IPC later)
+      document.getElementById("saveBtn").addEventListener("click", () => {
+        const status = document.getElementById("saveStatus");
+        status.classList.add("visible");
+        setTimeout(() => status.classList.remove("visible"), 2500);
+      });
+    </script>
+  </body>
 </html>
