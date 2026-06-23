@@ -322,6 +322,23 @@
         screenshotButton.disabled = !copyOption.checked && !saveOption.checked;
       }
 
+      function isKeyboardControlTarget(target) {
+        return target?.closest?.("button, input, select, textarea, [contenteditable]");
+      }
+
+      function captureScreenshot() {
+        if (isDragging || screenshotButton.disabled) return;
+
+        playScreenshotSound();
+        screenshotButton.disabled = true;
+        status.textContent = "Capturing...";
+        status.classList.add("visible");
+        window.flingScreenshot?.requestScreenshot?.(
+          selectedRect,
+          getScreenshotOptions(),
+        );
+      }
+
       async function loadScreenshotSettings() {
         const settings = await window.flingSettings?.get?.();
         const screenshotSettings = {
@@ -370,16 +387,7 @@
         setToolbarPosition(rect);
       });
 
-      screenshotButton.addEventListener("click", () => {
-        playScreenshotSound();
-        screenshotButton.disabled = true;
-        status.textContent = "Capturing...";
-        status.classList.add("visible");
-        window.flingScreenshot?.requestScreenshot?.(
-          selectedRect,
-          getScreenshotOptions(),
-        );
-      });
+      screenshotButton.addEventListener("click", captureScreenshot);
 
       cancelButton.addEventListener("click", () => {
         window.flingScreenshot?.closeOverlay?.();
@@ -391,6 +399,12 @@
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {
           window.flingScreenshot?.closeOverlay?.();
+        } else if (
+          event.key === "Enter" &&
+          !isKeyboardControlTarget(event.target)
+        ) {
+          event.preventDefault();
+          captureScreenshot();
         }
       });
 

@@ -1352,6 +1352,18 @@
         isRecording = false;
       }
 
+      function startRecordingFromControls() {
+        if (isDragging || isRecording || recordButton.disabled) return;
+        if (!selectedSaveLocally) return;
+
+        playRecordSound();
+        startRecording().catch(handleRecordingStartError);
+      }
+
+      function isKeyboardControlTarget(target) {
+        return target?.closest?.("button, input, select, textarea, [contenteditable]");
+      }
+
       overlay.addEventListener("pointerdown", (event) => {
         if (event.button !== 0 || isRecording) return;
         isDragging = true;
@@ -1471,11 +1483,7 @@
         activeRecording?.finish();
       });
 
-      recordButton.addEventListener("click", () => {
-        if (!selectedSaveLocally) return;
-        playRecordSound();
-        startRecording().catch(handleRecordingStartError);
-      });
+      recordButton.addEventListener("click", startRecordingFromControls);
 
       cancelButton.addEventListener("click", () => {
         window.flingVideo.closeOverlay();
@@ -1484,6 +1492,12 @@
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape" && !isRecording) {
           window.flingVideo.closeOverlay();
+        } else if (
+          event.key === "Enter" &&
+          !isKeyboardControlTarget(event.target)
+        ) {
+          event.preventDefault();
+          startRecordingFromControls();
         }
       });
 
