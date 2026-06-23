@@ -598,7 +598,7 @@
         </div>
       </div>
 
-      <!-- Upload -->
+      <!-- Local Defaults -->
       <div class="section">
         <div class="section-header">
           <svg
@@ -615,13 +615,24 @@
             <line x1="12" y1="12" x2="12" y2="21" />
             <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
           </svg>
-          Upload
+          Local Defaults
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Copy screenshots</strong>
+            <span>Copy screenshots to the clipboard by default</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="copyScreenshot" />
+            <span class="slider"></span>
+          </label>
         </div>
 
         <div class="row">
           <div class="row-label">
             <strong>Save local copy</strong>
-            <span>Keep a copy of captures in a local folder</span>
+            <span>Keep screenshots and recordings on this PC by default</span>
           </div>
           <label class="toggle">
             <input type="checkbox" id="saveLocal" />
@@ -631,14 +642,62 @@
 
         <div class="row">
           <div class="row-label">
-            <strong>Upload quality</strong>
-            <span>Higher quality means larger file sizes</span>
+            <strong>Recording duration</strong>
+            <span>Default length for region recordings</span>
           </div>
-          <select class="settings-select">
-            <option>High (default)</option>
-            <option>Medium</option>
-            <option>Low</option>
+          <select class="settings-select" id="recordDuration">
+            <option value="5">5 seconds</option>
+            <option value="10">10 seconds</option>
+            <option value="15">15 seconds</option>
+            <option value="20">20 seconds</option>
+            <option value="30">30 seconds</option>
           </select>
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Recording FPS</strong>
+            <span>Higher FPS produces smoother, larger recordings</span>
+          </div>
+          <select class="settings-select" id="recordFps">
+            <option value="15">15 FPS</option>
+            <option value="30">30 FPS</option>
+            <option value="60">60 FPS</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Recording quality</strong>
+            <span>Higher quality means larger local files</span>
+          </div>
+          <select class="settings-select" id="recordQuality">
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Record PC audio</strong>
+            <span>Include system audio when recording if available</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="recordSystemAudio" />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Record microphone</strong>
+            <span>Enable the microphone option by default</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="recordMicrophone" />
+            <span class="slider"></span>
+          </label>
         </div>
       </div>
     </main>
@@ -656,28 +715,159 @@
         });
       });
 
-      // Default shortcuts
-      const DEFAULTS = {
-        captureRegion: { mods: ["Ctrl", "Shift"], key: "S" },
-        captureFullscreen: { mods: ["Ctrl", "Shift"], key: "F" },
-        recordVideo: { mods: ["Ctrl", "Shift"], key: "R" },
+      const DEFAULT_SETTINGS = {
+        afterCapture: {
+          openBrowser: true,
+          copyUrl: true,
+          showNotification: true,
+        },
+        screenshot: {
+          copyToClipboard: false,
+          saveLocally: true,
+          uploadToServer: false,
+        },
+        recording: {
+          saveLocally: true,
+          durationSeconds: 10,
+          fps: 30,
+          quality: "medium",
+          includeSystemAudio: false,
+          includeMicrophone: false,
+          microphoneId: "",
+        },
+        shortcuts: {
+          captureRegion: "CommandOrControl+Shift+S",
+          captureFullscreen: "CommandOrControl+Shift+F",
+          recordVideo: "CommandOrControl+Shift+R",
+        },
       };
 
-      const shortcuts = structuredClone(DEFAULTS);
+      let settings = clone(DEFAULT_SETTINGS);
+      const shortcuts = {};
+
+      function clone(value) {
+        return JSON.parse(JSON.stringify(value));
+      }
+
+      function toDisplayKey(key) {
+        if (key === "CommandOrControl") return "Ctrl";
+        if (key === "Command") return "Cmd";
+        if (key === "Control") return "Ctrl";
+        return key;
+      }
+
+      function parseShortcut(accelerator) {
+        if (!accelerator) return null;
+        const parts = accelerator.split("+").filter(Boolean);
+        return parts.length > 0 ? parts.map(toDisplayKey) : null;
+      }
 
       function renderShortcut(id) {
         const el = document.querySelector(`.shortcut-input[data-id="${id}"]`);
-        const s = shortcuts[id];
-        if (!s) {
+        const keys = parseShortcut(shortcuts[id]);
+        if (!keys) {
           el.textContent = "Not set";
           return;
         }
-        el.innerHTML = [...s.mods, s.key]
+        el.innerHTML = keys
           .map((k) => `<span class="key">${k}</span>`)
           .join("+");
       }
 
-      Object.keys(shortcuts).forEach(renderShortcut);
+      function normalizeKey(event) {
+        if (event.code?.startsWith("Key")) return event.code.slice(3);
+        if (event.code?.startsWith("Digit")) return event.code.slice(5);
+        if (event.key === " ") return "Space";
+        return event.key.length === 1 ? event.key.toUpperCase() : event.key;
+      }
+
+      function shortcutFromEvent(event) {
+        const ignored = ["Control", "Alt", "Shift", "Meta"];
+        if (ignored.includes(event.key)) return null;
+
+        const mods = [];
+        if (event.ctrlKey || event.metaKey) mods.push("CommandOrControl");
+        if (event.altKey) mods.push("Alt");
+        if (event.shiftKey) mods.push("Shift");
+
+        return [...mods, normalizeKey(event)].join("+");
+      }
+
+      function applySettings(nextSettings) {
+        settings = {
+          ...clone(DEFAULT_SETTINGS),
+          ...nextSettings,
+          afterCapture: {
+            ...DEFAULT_SETTINGS.afterCapture,
+            ...nextSettings?.afterCapture,
+          },
+          screenshot: {
+            ...DEFAULT_SETTINGS.screenshot,
+            ...nextSettings?.screenshot,
+          },
+          recording: {
+            ...DEFAULT_SETTINGS.recording,
+            ...nextSettings?.recording,
+          },
+          shortcuts: {
+            ...DEFAULT_SETTINGS.shortcuts,
+            ...nextSettings?.shortcuts,
+          },
+        };
+
+        Object.keys(shortcuts).forEach((key) => delete shortcuts[key]);
+        Object.assign(shortcuts, settings.shortcuts);
+
+        document.getElementById("openBrowser").checked =
+          settings.afterCapture.openBrowser;
+        document.getElementById("copyUrl").checked = settings.afterCapture.copyUrl;
+        document.getElementById("showNotif").checked =
+          settings.afterCapture.showNotification;
+        document.getElementById("copyScreenshot").checked =
+          settings.screenshot.copyToClipboard;
+        document.getElementById("saveLocal").checked =
+          settings.screenshot.saveLocally && settings.recording.saveLocally;
+        document.getElementById("recordDuration").value = String(
+          settings.recording.durationSeconds,
+        );
+        document.getElementById("recordFps").value = String(settings.recording.fps);
+        document.getElementById("recordQuality").value =
+          settings.recording.quality;
+        document.getElementById("recordSystemAudio").checked =
+          settings.recording.includeSystemAudio;
+        document.getElementById("recordMicrophone").checked =
+          settings.recording.includeMicrophone;
+
+        Object.keys(shortcuts).forEach(renderShortcut);
+      }
+
+      function readSettingsFromForm() {
+        const saveLocally = document.getElementById("saveLocal").checked;
+
+        return {
+          afterCapture: {
+            openBrowser: document.getElementById("openBrowser").checked,
+            copyUrl: document.getElementById("copyUrl").checked,
+            showNotification: document.getElementById("showNotif").checked,
+          },
+          screenshot: {
+            copyToClipboard: document.getElementById("copyScreenshot").checked,
+            saveLocally,
+            uploadToServer: false,
+          },
+          recording: {
+            saveLocally,
+            durationSeconds: Number(document.getElementById("recordDuration").value),
+            fps: Number(document.getElementById("recordFps").value),
+            quality: document.getElementById("recordQuality").value,
+            includeSystemAudio:
+              document.getElementById("recordSystemAudio").checked,
+            includeMicrophone: document.getElementById("recordMicrophone").checked,
+            microphoneId: settings.recording.microphoneId,
+          },
+          shortcuts: { ...shortcuts },
+        };
+      }
 
       // Shortcut recording
       let recording = null;
@@ -699,27 +889,16 @@
         if (!recording) return;
         e.preventDefault();
 
-        const mods = [];
-        if (e.ctrlKey || e.metaKey) mods.push("Ctrl");
-        if (e.altKey) mods.push("Alt");
-        if (e.shiftKey) mods.push("Shift");
+        const shortcut = shortcutFromEvent(e);
+        if (!shortcut) return;
 
-        const ignored = ["Control", "Alt", "Shift", "Meta"];
-        if (ignored.includes(e.key)) return;
-
-        const key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
-        shortcuts[recording] = { mods, key };
+        shortcuts[recording] = shortcut;
 
         const el = document.querySelector(
           `.shortcut-input[data-id="${recording}"]`,
         );
         el.classList.remove("recording");
         recording = null;
-        renderShortcut(
-          Object.keys(shortcuts).find((id) => shortcuts[id] === shortcuts[id]),
-        );
-
-        // Re-render all (the object mutated in place)
         Object.keys(shortcuts).forEach(renderShortcut);
       });
 
@@ -745,20 +924,33 @@
       });
 
       // Reset defaults
-      document.getElementById("resetBtn").addEventListener("click", () => {
-        Object.assign(shortcuts, structuredClone(DEFAULTS));
-        Object.keys(shortcuts).forEach(renderShortcut);
-        document.getElementById("openBrowser").checked = true;
-        document.getElementById("copyUrl").checked = true;
-        document.getElementById("showNotif").checked = true;
-        document.getElementById("saveLocal").checked = false;
-      });
-
-      // Save (stub — wire to IPC later)
-      document.getElementById("saveBtn").addEventListener("click", () => {
+      function showSavedStatus(message = "Settings saved") {
         const status = document.getElementById("saveStatus");
+        status.textContent = message;
         status.classList.add("visible");
         setTimeout(() => status.classList.remove("visible"), 2500);
+      }
+
+      document.getElementById("resetBtn").addEventListener("click", async () => {
+        const nextSettings =
+          (await window.flingSettings?.reset?.()) ?? clone(DEFAULT_SETTINGS);
+        applySettings(nextSettings);
+        showSavedStatus("Settings reset");
+      });
+
+      document.getElementById("saveBtn").addEventListener("click", async () => {
+        const requestedSettings = readSettingsFromForm();
+        const nextSettings =
+          (await window.flingSettings?.save?.(requestedSettings)) ??
+          requestedSettings;
+        applySettings(nextSettings);
+        showSavedStatus();
+      });
+
+      window.addEventListener("DOMContentLoaded", async () => {
+        const savedSettings =
+          (await window.flingSettings?.get?.()) ?? clone(DEFAULT_SETTINGS);
+        applySettings(savedSettings);
       });
     </script>
   </body>

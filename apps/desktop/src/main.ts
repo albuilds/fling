@@ -33,6 +33,33 @@ type ScreenshotOptions = {
   uploadToServer: boolean;
 };
 
+type ShortcutId = "captureRegion" | "captureFullscreen" | "recordVideo";
+
+type ShortcutSettings = Record<ShortcutId, string | null>;
+
+type FlingSettings = {
+  afterCapture: {
+    openBrowser: boolean;
+    copyUrl: boolean;
+    showNotification: boolean;
+  };
+  screenshot: {
+    copyToClipboard: boolean;
+    saveLocally: boolean;
+    uploadToServer: boolean;
+  };
+  recording: {
+    saveLocally: boolean;
+    durationSeconds: number;
+    fps: number;
+    quality: "low" | "medium" | "high";
+    includeSystemAudio: boolean;
+    includeMicrophone: boolean;
+    microphoneId: string;
+  };
+  shortcuts: ShortcutSettings;
+};
+
 type ScreenSourceInfo = {
   id: string;
   width: number;
@@ -51,11 +78,39 @@ type VideoRecordingRegion = {
   timer: VideoRect;
 };
 
+const DEFAULT_SETTINGS: FlingSettings = {
+  afterCapture: {
+    openBrowser: true,
+    copyUrl: true,
+    showNotification: true,
+  },
+  screenshot: {
+    copyToClipboard: false,
+    saveLocally: true,
+    uploadToServer: false,
+  },
+  recording: {
+    saveLocally: true,
+    durationSeconds: 10,
+    fps: 30,
+    quality: "medium",
+    includeSystemAudio: false,
+    includeMicrophone: false,
+    microphoneId: "",
+  },
+  shortcuts: {
+    captureRegion: "CommandOrControl+Shift+S",
+    captureFullscreen: "CommandOrControl+Shift+F",
+    recordVideo: "CommandOrControl+Shift+R",
+  },
+};
+
 class FlingApp {
   private tray: Tray | null = null;
   private win: BrowserWindow | null = null;
   private screenshotOverlay: BrowserWindow | null = null;
   private videoOverlay: BrowserWindow | null = null;
+  private settings: FlingSettings = this.cloneSettings(DEFAULT_SETTINGS);
 
   private createWindow() {
     this.win = new BrowserWindow({
@@ -157,18 +212,32 @@ class FlingApp {
     const icon = nativeImage.createEmpty();
     this.tray = new Tray(icon);
     this.tray.setToolTip("Fling");
+    this.updateTrayMenu();
+    this.tray.on("click", () => {
+      this.tray?.popUpContextMenu();
+    });
+  }
+
+  private updateTrayMenu() {
+    if (!this.tray) return;
+
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: "Open", click: () => this.showPage("index.html") },
         { label: "History", click: () => this.showPage("history.html") },
         {
           label: "Capture Region",
-          accelerator: "CommandOrControl+Shift+S",
+          accelerator: this.settings.shortcuts.captureRegion ?? undefined,
           click: () => this.showScreenshotOverlay(),
         },
         {
+          label: "Capture Full Screen",
+          accelerator: this.settings.shortcuts.captureFullscreen ?? undefined,
+          click: () => this.captureScreenshot(null, null),
+        },
+        {
           label: "Record Region",
-          accelerator: "CommandOrControl+Shift+R",
+          accelerator: this.settings.shortcuts.recordVideo ?? undefined,
           click: () => this.showVideoOverlay(),
         },
         { type: "separator" },
@@ -180,36 +249,20 @@ class FlingApp {
         },
       ]),
     );
-    this.tray.on("click", () => {
-      this.tray?.popUpContextMenu();
-    });
   }
 
-  start() {
+  async start() {
     app.setAppUserModelId("fling");
     Menu.setApplicationMenu(null);
+    await this.loadSettings();
     this.registerMediaPermissions();
     this.registerWindowControls();
+    this.registerSettingsControls();
     this.registerScreenshotControls();
     this.registerVideoControls();
     this.createWindow();
     this.createTray();
-    const screenshotShortcutRegistered = globalShortcut.register(
-      "CommandOrControl+Shift+S",
-      () => this.showScreenshotOverlay(),
-    );
-    if (!screenshotShortcutRegistered) {
-      console.warn(
-        "Could not register screenshot shortcut: CommandOrControl+Shift+S",
-      );
-    }
-    const videoShortcutRegistered = globalShortcut.register(
-      "CommandOrControl+Shift+R",
-      () => this.showVideoOverlay(),
-    );
-    if (!videoShortcutRegistered) {
-      console.warn("Could not register video shortcut: CommandOrControl+Shift+R");
-    }
+    this.registerGlobalShortcuts();
   }
 
   private registerMediaPermissions() {
@@ -247,6 +300,24 @@ class FlingApp {
       }
     });
     ipcMain.on("window:close", () => this.win?.close());
+  }
+
+  private registerSettingsControls() {
+    ipcMain.handle("settings:get", () => this.cloneSettings(this.settings));
+    ipcMain.handle("settings:save", async (_event, requestedSettings) => {
+      this.settings = this.normalizeSettings(requestedSettings);
+      await this.saveSettings();
+      this.registerGlobalShortcuts();
+      this.updateTrayMenu();
+      return this.cloneSettings(this.settings);
+    });
+    ipcMain.handle("settings:reset", async () => {
+      this.settings = this.cloneSettings(DEFAULT_SETTINGS);
+      await this.saveSettings();
+      this.registerGlobalShortcuts();
+      this.updateTrayMenu();
+      return this.cloneSettings(this.settings);
+    });
   }
 
   private registerScreenshotControls() {
@@ -300,13 +371,14 @@ class FlingApp {
     requestedOptions: Partial<ScreenshotOptions> | null,
   ) {
     const overlay = this.screenshotOverlay;
-    if (!overlay) return;
     const options = this.normalizeScreenshotOptions(requestedOptions);
 
     try {
-      overlay.webContents.send("screenshot-overlay:pending");
-      overlay.hide();
-      await new Promise((resolve) => setTimeout(resolve, 160));
+      if (overlay) {
+        overlay.webContents.send("screenshot-overlay:pending");
+        overlay.hide();
+        await new Promise((resolve) => setTimeout(resolve, 160));
+      }
 
       const display = screen.getPrimaryDisplay();
       const scaleFactor = display.scaleFactor || 1;
@@ -325,8 +397,6 @@ class FlingApp {
 
       let savedPath = "";
 
-      console.log("in here");
-
       if (options.copyToClipboard) {
         this.writeScreenshotToClipboard(image);
       }
@@ -342,11 +412,13 @@ class FlingApp {
         await fs.writeFile(savedPath, image.toPNG());
       }
 
-      overlay.webContents.send("screenshot-overlay:saved", savedPath);
-      overlay.close();
+      if (overlay && !overlay.isDestroyed()) {
+        overlay.webContents.send("screenshot-overlay:saved", savedPath);
+        overlay.close();
+      }
     } catch (error) {
       console.error("Could not capture screenshot:", error);
-      if (!overlay.isDestroyed()) {
+      if (overlay && !overlay.isDestroyed()) {
         overlay.show();
         overlay.webContents.send("screenshot-overlay:error");
       }
@@ -357,10 +429,182 @@ class FlingApp {
     options: Partial<ScreenshotOptions> | null,
   ): ScreenshotOptions {
     return {
-      copyToClipboard: options?.copyToClipboard === true,
-      saveLocally: options?.saveLocally !== false,
+      copyToClipboard:
+        options?.copyToClipboard ?? this.settings.screenshot.copyToClipboard,
+      saveLocally: options?.saveLocally ?? this.settings.screenshot.saveLocally,
       uploadToServer: options?.uploadToServer === true,
     };
+  }
+
+  private async loadSettings() {
+    try {
+      const settingsJson = await fs.readFile(this.getSettingsPath(), "utf8");
+      this.settings = this.normalizeSettings(JSON.parse(settingsJson));
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT") {
+        console.warn("Could not load settings. Using defaults.", error);
+      }
+      this.settings = this.cloneSettings(DEFAULT_SETTINGS);
+    }
+  }
+
+  private async saveSettings() {
+    const settingsPath = this.getSettingsPath();
+    await fs.mkdir(path.dirname(settingsPath), { recursive: true });
+    await fs.writeFile(
+      settingsPath,
+      `${JSON.stringify(this.settings, null, 2)}\n`,
+      "utf8",
+    );
+  }
+
+  private getSettingsPath() {
+    return path.join(app.getPath("userData"), "settings.json");
+  }
+
+  private registerGlobalShortcuts() {
+    globalShortcut.unregisterAll();
+    this.registerGlobalShortcut(
+      "capture region",
+      this.settings.shortcuts.captureRegion,
+      () => this.showScreenshotOverlay(),
+    );
+    this.registerGlobalShortcut(
+      "capture full screen",
+      this.settings.shortcuts.captureFullscreen,
+      () => this.captureScreenshot(null, null),
+    );
+    this.registerGlobalShortcut(
+      "record video",
+      this.settings.shortcuts.recordVideo,
+      () => this.showVideoOverlay(),
+    );
+  }
+
+  private registerGlobalShortcut(
+    label: string,
+    accelerator: string | null,
+    callback: () => void,
+  ) {
+    if (!accelerator) return;
+
+    try {
+      const registered = globalShortcut.register(accelerator, callback);
+      if (!registered) {
+        console.warn(`Could not register ${label} shortcut: ${accelerator}`);
+      }
+    } catch (error) {
+      console.warn(`Invalid ${label} shortcut: ${accelerator}`, error);
+    }
+  }
+
+  private normalizeSettings(settings: unknown): FlingSettings {
+    const requested = this.asRecord(settings);
+    const afterCapture = this.asRecord(requested.afterCapture);
+    const screenshot = this.asRecord(requested.screenshot);
+    const recording = this.asRecord(requested.recording);
+    const shortcuts = this.asRecord(requested.shortcuts);
+
+    return {
+      afterCapture: {
+        openBrowser: this.booleanOrDefault(
+          afterCapture.openBrowser,
+          DEFAULT_SETTINGS.afterCapture.openBrowser,
+        ),
+        copyUrl: this.booleanOrDefault(
+          afterCapture.copyUrl,
+          DEFAULT_SETTINGS.afterCapture.copyUrl,
+        ),
+        showNotification: this.booleanOrDefault(
+          afterCapture.showNotification,
+          DEFAULT_SETTINGS.afterCapture.showNotification,
+        ),
+      },
+      screenshot: {
+        copyToClipboard: this.booleanOrDefault(
+          screenshot.copyToClipboard,
+          DEFAULT_SETTINGS.screenshot.copyToClipboard,
+        ),
+        saveLocally: this.booleanOrDefault(
+          screenshot.saveLocally,
+          DEFAULT_SETTINGS.screenshot.saveLocally,
+        ),
+        uploadToServer: false,
+      },
+      recording: {
+        saveLocally: this.booleanOrDefault(
+          recording.saveLocally,
+          DEFAULT_SETTINGS.recording.saveLocally,
+        ),
+        durationSeconds: this.oneOf(
+          recording.durationSeconds,
+          [5, 10, 15, 20, 30],
+          DEFAULT_SETTINGS.recording.durationSeconds,
+        ),
+        fps: this.oneOf(recording.fps, [15, 30, 60], DEFAULT_SETTINGS.recording.fps),
+        quality: this.oneOf(
+          recording.quality,
+          ["low", "medium", "high"],
+          DEFAULT_SETTINGS.recording.quality,
+        ),
+        includeSystemAudio: this.booleanOrDefault(
+          recording.includeSystemAudio,
+          DEFAULT_SETTINGS.recording.includeSystemAudio,
+        ),
+        includeMicrophone: this.booleanOrDefault(
+          recording.includeMicrophone,
+          DEFAULT_SETTINGS.recording.includeMicrophone,
+        ),
+        microphoneId:
+          typeof recording.microphoneId === "string"
+            ? recording.microphoneId
+            : DEFAULT_SETTINGS.recording.microphoneId,
+      },
+      shortcuts: {
+        captureRegion: this.shortcutOrDefault(
+          shortcuts.captureRegion,
+          DEFAULT_SETTINGS.shortcuts.captureRegion,
+        ),
+        captureFullscreen: this.shortcutOrDefault(
+          shortcuts.captureFullscreen,
+          DEFAULT_SETTINGS.shortcuts.captureFullscreen,
+        ),
+        recordVideo: this.shortcutOrDefault(
+          shortcuts.recordVideo,
+          DEFAULT_SETTINGS.shortcuts.recordVideo,
+        ),
+      },
+    };
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return value as Record<string, unknown>;
+  }
+
+  private booleanOrDefault(value: unknown, defaultValue: boolean) {
+    return typeof value === "boolean" ? value : defaultValue;
+  }
+
+  private oneOf<T extends string | number>(
+    value: unknown,
+    allowed: readonly T[],
+    defaultValue: T,
+  ): T {
+    return allowed.includes(value as T) ? (value as T) : defaultValue;
+  }
+
+  private shortcutOrDefault(value: unknown, defaultValue: string | null) {
+    if (value === null) return null;
+    if (typeof value !== "string") return defaultValue;
+
+    const shortcut = value.trim();
+    return shortcut ? shortcut : null;
+  }
+
+  private cloneSettings(settings: FlingSettings): FlingSettings {
+    return JSON.parse(JSON.stringify(settings)) as FlingSettings;
   }
 
   private writeScreenshotToClipboard(image: Electron.NativeImage) {
@@ -530,7 +774,12 @@ class FlingApp {
 }
 
 // Waits for Electron to finish initializing and creates the Fling applicaiton.
-app.whenReady().then(() => new FlingApp().start());
+app.whenReady().then(() => {
+  new FlingApp().start().catch((error) => {
+    console.error("Could not start Fling:", error);
+    app.exit(1);
+  });
+});
 
 // Removes shortcuts before full shutdown.
 app.on("will-quit", () => {

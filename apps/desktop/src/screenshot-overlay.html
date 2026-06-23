@@ -258,6 +258,12 @@
       let isDragging = false;
       let selectedRect = null;
 
+      const DEFAULT_SCREENSHOT_SETTINGS = {
+        copyToClipboard: false,
+        saveLocally: true,
+        uploadToServer: false,
+      };
+
       function clamp(value, min, max) {
         return Math.min(Math.max(value, min), max);
       }
@@ -314,6 +320,19 @@
 
       function updateScreenshotButtonState() {
         screenshotButton.disabled = !copyOption.checked && !saveOption.checked;
+      }
+
+      async function loadScreenshotSettings() {
+        const settings = await window.flingSettings?.get?.();
+        const screenshotSettings = {
+          ...DEFAULT_SCREENSHOT_SETTINGS,
+          ...settings?.screenshot,
+        };
+
+        copyOption.checked = screenshotSettings.copyToClipboard;
+        saveOption.checked = screenshotSettings.saveLocally;
+        uploadOption.checked = false;
+        updateScreenshotButtonState();
       }
 
       overlay.addEventListener("pointerdown", (event) => {
@@ -390,6 +409,8 @@
         status.textContent = "Could not save screenshot";
         status.classList.add("visible");
       });
+
+      loadScreenshotSettings();
     </script>
   </body>
 </html>

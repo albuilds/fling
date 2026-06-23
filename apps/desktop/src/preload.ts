@@ -7,6 +7,12 @@ contextBridge.exposeInMainWorld("flingWindow", {
   close: () => ipcRenderer.send("window:close"),
 });
 
+contextBridge.exposeInMainWorld("flingSettings", {
+  get: () => ipcRenderer.invoke("settings:get"),
+  save: (settings: unknown) => ipcRenderer.invoke("settings:save", settings),
+  reset: () => ipcRenderer.invoke("settings:reset"),
+});
+
 contextBridge.exposeInMainWorld("flingScreenshot", {
   closeOverlay: () => ipcRenderer.send("screenshot-overlay:close"),
   requestScreenshot: (rect: unknown, options: unknown) =>
@@ -26,6 +32,5 @@ contextBridge.exposeInMainWorld("flingVideo", {
   setRecordingRegion: (rect: unknown) =>
     ipcRenderer.invoke("video-overlay:set-recording-region", rect),
   getScreenSource: () => ipcRenderer.invoke("video-overlay:get-source"),
-  saveRecording: (data: ArrayBuffer) =>
-    ipcRenderer.invoke("video-overlay:save", data),
+  saveRecording: (data: ArrayBuffer) => ipcRenderer.invoke("video-overlay:save", data),
 });

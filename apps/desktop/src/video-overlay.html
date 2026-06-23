@@ -542,6 +542,12 @@
           High
         </button>
       </div>
+      <div class="option-group" aria-label="Local recording output">
+        <span class="option-label">Local</span>
+        <button class="option-button active" type="button" id="saveLocalButton">
+          Save
+        </button>
+      </div>
       <div class="option-group audio-group" aria-label="Recording audio">
         <span class="option-label">Audio</span>
         <button class="option-button" type="button" id="systemAudioButton">
@@ -657,6 +663,7 @@
       const finishRecordingButton = document.getElementById(
         "finishRecordingButton",
       );
+      const saveLocalButton = document.getElementById("saveLocalButton");
       const systemAudioButton = document.getElementById("systemAudioButton");
       const microphoneButton = document.getElementById("microphoneButton");
       const microphoneSelect = document.getElementById("microphoneSelect");
@@ -677,11 +684,22 @@
       let selectedDuration = 10;
       let selectedFps = 30;
       let selectedQuality = "medium";
+      let selectedSaveLocally = true;
       let includeSystemAudio = false;
       let includeMicrophone = false;
       let selectedMicrophoneId = "";
       let isRecording = false;
       let activeRecording = null;
+
+      const DEFAULT_RECORDING_SETTINGS = {
+        saveLocally: true,
+        durationSeconds: 10,
+        fps: 30,
+        quality: "medium",
+        includeSystemAudio: false,
+        includeMicrophone: false,
+        microphoneId: "",
+      };
 
       function clamp(value, min, max) {
         return Math.min(Math.max(value, min), max);
@@ -858,7 +876,7 @@
 
       async function getDesktopStream(source) {
         if (!includeSystemAudio) {
-          return navigator.mediaDevices.getusermedia(
+          return navigator.mediaDevices.getUserMedia(
             getDesktopCaptureConstraints(source, false),
           );
         }
@@ -939,6 +957,48 @@
         microphoneSelect.classList.toggle("enabled", includeMicrophone);
       }
 
+      function updateSaveLocalControl() {
+        saveLocalButton.classList.toggle("active", selectedSaveLocally);
+        saveLocalButton.setAttribute("aria-pressed", String(selectedSaveLocally));
+        recordButton.disabled = !selectedSaveLocally;
+
+        if (!selectedSaveLocally) {
+          setStatus("Enable Save to keep a local recording");
+        } else if (status.textContent === "Enable Save to keep a local recording") {
+          status.classList.remove("visible");
+        }
+      }
+
+      function setActiveOption(options, value) {
+        options.forEach((option) => {
+          const optionValue =
+            option.dataset.duration ?? option.dataset.fps ?? option.dataset.quality;
+          option.classList.toggle("active", optionValue === String(value));
+        });
+      }
+
+      async function loadRecordingSettings() {
+        const settings = await window.flingSettings?.get?.();
+        const recordingSettings = {
+          ...DEFAULT_RECORDING_SETTINGS,
+          ...settings?.recording,
+        };
+
+        selectedDuration = recordingSettings.durationSeconds;
+        selectedFps = recordingSettings.fps;
+        selectedQuality = recordingSettings.quality;
+        selectedSaveLocally = recordingSettings.saveLocally;
+        includeSystemAudio = recordingSettings.includeSystemAudio;
+        includeMicrophone = recordingSettings.includeMicrophone;
+        selectedMicrophoneId = recordingSettings.microphoneId;
+
+        setActiveOption(durationOptions, selectedDuration);
+        setActiveOption(fpsOptions, selectedFps);
+        setActiveOption(qualityOptions, selectedQuality);
+        updateAudioControls();
+        updateSaveLocalControl();
+      }
+
       async function populateMicrophones() {
         let devices = [];
 
@@ -984,7 +1044,7 @@
       }
 
       async function startRecording() {
-        if (!selectedRect || isRecording) return;
+        if (!selectedRect || isRecording || !selectedSaveLocally) return;
 
         isRecording = true;
         recordButton.disabled = true;
@@ -1354,6 +1414,11 @@
         });
       });
 
+      saveLocalButton.addEventListener("click", () => {
+        selectedSaveLocally = !selectedSaveLocally;
+        updateSaveLocalControl();
+      });
+
       systemAudioButton.addEventListener("click", () => {
         includeSystemAudio = !includeSystemAudio;
         updateAudioControls();
@@ -1407,6 +1472,7 @@
       });
 
       recordButton.addEventListener("click", () => {
+        if (!selectedSaveLocally) return;
         playRecordSound();
         startRecording().catch(handleRecordingStartError);
       });
@@ -1421,8 +1487,14 @@
         }
       });
 
-      populateMicrophones();
-      updateAudioControls();
+      async function initializeRecordingOverlay() {
+        await loadRecordingSettings();
+        await populateMicrophones();
+        updateAudioControls();
+        updateSaveLocalControl();
+      }
+
+      initializeRecordingOverlay();
 
       navigator.mediaDevices.addEventListener?.("devicechange", () => {
         populateMicrophones();
