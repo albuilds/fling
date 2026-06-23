@@ -553,10 +553,8 @@ main {
   min-width: 74px;
   padding: 0 22px 0 10px;
   background:
-    linear-gradient(45deg, transparent 50%, rgba(232, 232, 240, 0.66) 50%)
-      calc(100% - 14px) 12px / 5px 5px no-repeat,
-    linear-gradient(135deg, rgba(232, 232, 240, 0.66) 50%, transparent 50%)
-      calc(100% - 9px) 12px / 5px 5px no-repeat,
+    linear-gradient(45deg, transparent 50%, rgba(232, 232, 240, 0.66) 50%) calc(100% - 14px) 12px / 5px 5px no-repeat,
+    linear-gradient(135deg, rgba(232, 232, 240, 0.66) 50%, transparent 50%) calc(100% - 9px) 12px / 5px 5px no-repeat,
     var(--bg);
 }
 
@@ -999,7 +997,6 @@ main {
   .hero-stats {
     animation-delay: 0.22s;
   }
-
 }
 
 @media (max-width: 1120px) {

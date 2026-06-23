@@ -132,6 +132,7 @@ function ProductScene() {
             <div className="preview-main">
               {previewSections.map((section) => {
                 const Icon = section.icon;
+
                 return (
                   <section className="preview-section" key={section.title}>
                     <div className="preview-section-header">
@@ -181,7 +182,7 @@ function ProductScene() {
   );
 }
 
-export function App() {
+export default function Home() {
   return (
     <div className="app">
       <header className="site-header">
@@ -252,7 +253,11 @@ export function App() {
           </div>
         </section>
 
-        <section className="workflow reveal" id="workflow" aria-labelledby="workflow-title">
+        <section
+          className="workflow reveal"
+          id="workflow"
+          aria-labelledby="workflow-title"
+        >
           <div className="section-heading reveal">
             <p className="eyebrow">
               <TimerReset size={14} />
@@ -263,6 +268,7 @@ export function App() {
           <div className="workflow-grid">
             {workflowItems.map((item) => {
               const Icon = item.icon;
+
               return (
                 <article className="feature-card reveal" key={item.title}>
                   <div className="feature-icon">
@@ -276,16 +282,23 @@ export function App() {
           </div>
         </section>
 
-        <section className="capture-band reveal" id="capture" aria-labelledby="capture-title">
+        <section
+          className="capture-band reveal"
+          id="capture"
+          aria-labelledby="capture-title"
+        >
           <div className="capture-copy reveal">
             <p className="eyebrow">
               <Cloud size={14} />
               Ready for local-first sharing
             </p>
-            <h2 id="capture-title">A desktop utility with web-ready momentum.</h2>
+            <h2 id="capture-title">
+              A desktop utility with web-ready momentum.
+            </h2>
             <p>
-              Fling keeps capture controls compact and predictable while leaving
-              room for upload, browser handoff, and link workflows as the app grows.
+              Fling keeps capture controls compact and predictable while
+              leaving room for upload, browser handoff, and link workflows as
+              the app grows.
             </p>
           </div>
           <div className="capability-list">
@@ -302,13 +315,19 @@ export function App() {
           </div>
         </section>
 
-        <section className="download reveal" id="download" aria-labelledby="download-title">
+        <section
+          className="download reveal"
+          id="download"
+          aria-labelledby="download-title"
+        >
           <div>
             <p className="eyebrow">
               <Zap size={14} />
               Start with the desktop app
             </p>
-            <h2 id="download-title">Fast capture, polished controls, no ceremony.</h2>
+            <h2 id="download-title">
+              Fast capture, polished controls, no ceremony.
+            </h2>
           </div>
           <a className="button primary" href="#">
             <ArrowRight size={18} />
