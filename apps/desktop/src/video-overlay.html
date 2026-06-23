@@ -1,0 +1,1432 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fling Video</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --accent: #f85a5a;
+        --accent-hover: #ff7070;
+        --accent-glow: rgba(248, 90, 90, 0.32);
+        --text: #ffffff;
+        --muted: rgba(255, 255, 255, 0.68);
+        --panel: rgba(16, 16, 24, 0.92);
+        --selection: rgba(248, 90, 90, 0.1);
+        --selection-border: rgba(255, 132, 132, 0.95);
+        --font: -apple-system, "Segoe UI", sans-serif;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+        color: var(--text);
+        font-family: var(--font);
+        user-select: none;
+        cursor: crosshair;
+      }
+
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(4, 4, 8, 0.48);
+      }
+
+      body.recording {
+        cursor: default;
+      }
+
+      body.recording .overlay,
+      body.recording .hint,
+      body.recording .toolbar {
+        display: none;
+      }
+
+      body.recording .selection {
+        display: block;
+        background: transparent;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+          0 0 18px var(--accent-glow);
+      }
+
+      .hint {
+        position: fixed;
+        top: 18px;
+        left: 50%;
+        z-index: 2;
+        transform: translateX(-50%);
+        padding: 8px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        background: var(--panel);
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1;
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+        pointer-events: none;
+        white-space: nowrap;
+      }
+
+      .selection {
+        position: fixed;
+        z-index: 3;
+        display: none;
+        min-width: 2px;
+        min-height: 2px;
+        border: 2px solid var(--selection-border);
+        background: var(--selection);
+        box-shadow:
+          0 0 0 9999px rgba(4, 4, 8, 0.24),
+          0 0 0 1px rgba(255, 255, 255, 0.16) inset;
+        pointer-events: none;
+      }
+
+      .selection.visible {
+        display: block;
+      }
+
+      .selection::before,
+      .selection::after {
+        content: "";
+        position: absolute;
+        background: rgba(255, 255, 255, 0.52);
+      }
+
+      .selection::before {
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 1px;
+        transform: translateY(-50%);
+      }
+
+      .selection::after {
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: 1px;
+        transform: translateX(-50%);
+      }
+
+      .toolbar {
+        position: fixed;
+        z-index: 4;
+        display: none;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        max-width: calc(100vw - 20px);
+        padding: 7px;
+        border: 1px solid rgba(255, 255, 255, 0.11);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+        cursor: default;
+      }
+
+      .toolbar.visible {
+        display: flex;
+      }
+
+      .option-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        min-height: 32px;
+        padding: 0 2px;
+      }
+
+      .option-label {
+        color: var(--muted);
+        font: 700 10px/1 var(--font);
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+      }
+
+      .option-button {
+        height: 28px;
+        min-width: 38px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--muted);
+        font: 600 11px/1 var(--font);
+        cursor: pointer;
+      }
+
+      .option-button:hover:not(.active) {
+        color: rgba(255, 255, 255, 0.86);
+        border-color: rgba(255, 255, 255, 0.22);
+        background: rgba(255, 255, 255, 0.11);
+      }
+
+      .option-button.active {
+        color: var(--text);
+        border-color: rgba(255, 132, 132, 0.72);
+        background: rgba(248, 90, 90, 0.28);
+        box-shadow:
+          0 0 0 1px rgba(248, 90, 90, 0.18) inset,
+          0 0 14px rgba(248, 90, 90, 0.18);
+      }
+
+      .option-button.active:hover {
+        background: rgba(248, 90, 90, 0.34);
+        border-color: rgba(255, 132, 132, 0.88);
+      }
+
+      .option-button:disabled {
+        opacity: 0.42;
+        cursor: not-allowed;
+      }
+
+      .audio-group {
+        gap: 6px;
+      }
+
+      .microphone-select {
+        --select-bg: rgba(255, 255, 255, 0.06);
+        --select-arrow: rgba(255, 255, 255, 0.62);
+        appearance: none;
+        width: 136px;
+        max-width: 28vw;
+        height: 28px;
+        padding: 0 28px 0 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 7px;
+        background:
+          linear-gradient(45deg, transparent 50%, var(--select-arrow) 50%)
+            calc(100% - 15px) 11px / 5px 5px no-repeat,
+          linear-gradient(135deg, var(--select-arrow) 50%, transparent 50%)
+            calc(100% - 10px) 11px / 5px 5px no-repeat,
+          var(--select-bg);
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+        color: var(--text);
+        font: 600 11px/1 var(--font);
+        outline: none;
+        cursor: pointer;
+        transition:
+          border-color 0.15s,
+          background-color 0.15s,
+          box-shadow 0.15s,
+          color 0.15s;
+      }
+
+      .microphone-select:hover:not(:disabled) {
+        --select-bg: rgba(255, 255, 255, 0.1);
+        --select-arrow: rgba(255, 255, 255, 0.82);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+
+      .microphone-select:focus {
+        border-color: rgba(255, 132, 132, 0.76);
+        box-shadow:
+          0 0 0 1px rgba(248, 90, 90, 0.18) inset,
+          0 0 0 3px rgba(248, 90, 90, 0.14);
+      }
+
+      .microphone-select.enabled {
+        --select-bg: rgba(248, 90, 90, 0.16);
+        --select-arrow: rgba(255, 255, 255, 0.86);
+        border-color: rgba(255, 132, 132, 0.58);
+      }
+
+      .microphone-select:disabled {
+        --select-arrow: rgba(255, 255, 255, 0.3);
+        opacity: 0.42;
+        color: var(--muted);
+        cursor: not-allowed;
+      }
+
+      .microphone-select option {
+        background: #161620;
+        color: var(--text);
+      }
+
+      button {
+        height: 32px;
+        border: 0;
+        border-radius: 7px;
+        padding: 0 14px;
+        color: var(--text);
+        font: 600 12px/1 var(--font);
+        cursor: pointer;
+      }
+
+      .record-button {
+        background: var(--accent);
+        box-shadow: 0 0 18px var(--accent-glow);
+      }
+
+      .record-button:hover {
+        background: var(--accent-hover);
+      }
+
+      .record-button:disabled {
+        opacity: 0.52;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      .cancel-button {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--muted);
+      }
+
+      .cancel-button:hover {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.12);
+      }
+
+      .timer {
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 5;
+        display: none;
+        width: 206px;
+        padding: 7px 9px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+        color: var(--text);
+        font: 700 13px/1 var(--font);
+        text-align: center;
+      }
+
+      .timer.visible {
+        display: block;
+      }
+
+      .recording-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin-bottom: 7px;
+      }
+
+      .recording-control {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        padding: 0;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.07);
+        color: var(--muted);
+      }
+
+      .recording-control:hover {
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.24);
+        background: rgba(255, 255, 255, 0.13);
+      }
+
+      .recording-control.danger:hover {
+        border-color: rgba(255, 118, 118, 0.72);
+        background: rgba(248, 90, 90, 0.22);
+      }
+
+      .recording-control.success:hover {
+        border-color: rgba(120, 225, 165, 0.72);
+        background: rgba(62, 180, 112, 0.22);
+      }
+
+      .recording-control:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .control-icon {
+        position: relative;
+        display: block;
+        width: 15px;
+        height: 15px;
+        color: currentColor;
+      }
+
+      .icon-x::before,
+      .icon-x::after {
+        content: "";
+        position: absolute;
+        top: 7px;
+        left: 1px;
+        width: 13px;
+        height: 2px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      .icon-x::before {
+        transform: rotate(45deg);
+      }
+
+      .icon-x::after {
+        transform: rotate(-45deg);
+      }
+
+      .icon-redo {
+        width: 17px;
+        height: 17px;
+      }
+
+      .icon-pause::before {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 3px;
+        width: 3px;
+        height: 11px;
+        border-radius: 999px;
+        background: currentColor;
+        box-shadow: 6px 0 0 currentColor;
+      }
+
+      .icon-play::before {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 4px;
+        width: 0;
+        height: 0;
+        border-top: 6px solid transparent;
+        border-bottom: 6px solid transparent;
+        border-left: 9px solid currentColor;
+      }
+
+      .icon-check::before,
+      .icon-check::after {
+        content: "";
+        position: absolute;
+        height: 2px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      .icon-check::before {
+        top: 8px;
+        left: 2px;
+        width: 6px;
+        transform: rotate(45deg);
+      }
+
+      .icon-check::after {
+        top: 7px;
+        left: 6px;
+        width: 10px;
+        transform: rotate(-48deg);
+      }
+
+      .timer-progress {
+        position: relative;
+        height: 18px;
+        overflow: hidden;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .timer-progress-fill {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+        box-shadow: 0 0 16px var(--accent-glow);
+        transform: scaleX(1);
+        transform-origin: left center;
+        transition: transform 120ms linear;
+      }
+
+      .timer-label {
+        display: block;
+        margin-top: 6px;
+      }
+
+      .timer-label::before {
+        content: "";
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        margin-right: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 12px var(--accent-glow);
+        vertical-align: 1px;
+      }
+
+      .status {
+        display: none;
+        color: var(--muted);
+        font-size: 12px;
+        padding: 0 6px;
+      }
+
+      .status.visible {
+        display: inline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="overlay" id="overlay"></div>
+    <div class="hint">Drag to select a recording area</div>
+    <div class="selection" id="selection"></div>
+    <div class="toolbar" id="toolbar">
+      <div class="option-group" aria-label="Recording duration">
+        <span class="option-label">Time</span>
+        <button class="option-button duration-option" type="button" data-duration="5">
+          5s
+        </button>
+        <button
+          class="option-button duration-option active"
+          type="button"
+          data-duration="10"
+        >
+          10s
+        </button>
+        <button class="option-button duration-option" type="button" data-duration="15">
+          15s
+        </button>
+        <button class="option-button duration-option" type="button" data-duration="20">
+          20s
+        </button>
+        <button class="option-button duration-option" type="button" data-duration="30">
+          30s
+        </button>
+      </div>
+      <div class="option-group" aria-label="Recording FPS">
+        <span class="option-label">FPS</span>
+        <button class="option-button fps-option" type="button" data-fps="15">
+          15
+        </button>
+        <button class="option-button fps-option active" type="button" data-fps="30">
+          30
+        </button>
+        <button class="option-button fps-option" type="button" data-fps="60">
+          60
+        </button>
+      </div>
+      <div class="option-group" aria-label="Recording quality">
+        <span class="option-label">Quality</span>
+        <button
+          class="option-button quality-option"
+          type="button"
+          data-quality="low"
+        >
+          Low
+        </button>
+        <button
+          class="option-button quality-option active"
+          type="button"
+          data-quality="medium"
+        >
+          Med
+        </button>
+        <button
+          class="option-button quality-option"
+          type="button"
+          data-quality="high"
+        >
+          High
+        </button>
+      </div>
+      <div class="option-group audio-group" aria-label="Recording audio">
+        <span class="option-label">Audio</span>
+        <button class="option-button" type="button" id="systemAudioButton">
+          PC
+        </button>
+        <button class="option-button" type="button" id="microphoneButton">
+          Mic
+        </button>
+        <select
+          class="microphone-select"
+          id="microphoneSelect"
+          aria-label="Microphone input"
+          disabled
+        >
+          <option value="">Default microphone</option>
+        </select>
+      </div>
+      <button class="record-button" type="button" id="recordButton">
+        Record
+      </button>
+      <button class="cancel-button" type="button" id="cancelButton">
+        Cancel
+      </button>
+      <span class="status" id="status">Preparing...</span>
+    </div>
+    <div class="timer" id="timer">
+      <div class="recording-controls" aria-label="Recording controls">
+        <button
+          class="recording-control danger"
+          type="button"
+          id="discardRecordingButton"
+          aria-label="Cancel recording"
+          title="Cancel recording"
+        >
+          <span class="control-icon icon-x" aria-hidden="true"></span>
+        </button>
+        <button
+          class="recording-control"
+          type="button"
+          id="redoRecordingButton"
+          aria-label="Redo recording"
+          title="Redo recording"
+        >
+          <svg
+            class="control-icon icon-redo"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <path
+              d="M21 3v6h-6"
+              stroke="currentColor"
+              stroke-width="2.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            ></path>
+            <path
+              d="M20.4 14.5a8.5 8.5 0 1 1-2-8.8L21 9"
+              stroke="currentColor"
+              stroke-width="2.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            ></path>
+          </svg>
+        </button>
+        <button
+          class="recording-control"
+          type="button"
+          id="pauseRecordingButton"
+          aria-label="Pause recording"
+          title="Pause recording"
+        >
+          <span
+            class="control-icon icon-pause"
+            id="pauseRecordingIcon"
+            aria-hidden="true"
+          ></span>
+        </button>
+        <button
+          class="recording-control success"
+          type="button"
+          id="finishRecordingButton"
+          aria-label="Finish recording"
+          title="Finish recording"
+        >
+          <span class="control-icon icon-check" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="timer-progress" aria-hidden="true">
+        <span class="timer-progress-fill" id="timerProgress"></span>
+      </div>
+      <span class="timer-label" id="timerText">10s</span>
+    </div>
+
+    <script>
+      const overlay = document.getElementById("overlay");
+      const selection = document.getElementById("selection");
+      const toolbar = document.getElementById("toolbar");
+      const status = document.getElementById("status");
+      const recordButton = document.getElementById("recordButton");
+      const cancelButton = document.getElementById("cancelButton");
+      const timer = document.getElementById("timer");
+      const timerProgress = document.getElementById("timerProgress");
+      const timerText = document.getElementById("timerText");
+      const discardRecordingButton = document.getElementById(
+        "discardRecordingButton",
+      );
+      const redoRecordingButton = document.getElementById("redoRecordingButton");
+      const pauseRecordingButton = document.getElementById(
+        "pauseRecordingButton",
+      );
+      const pauseRecordingIcon = document.getElementById("pauseRecordingIcon");
+      const finishRecordingButton = document.getElementById(
+        "finishRecordingButton",
+      );
+      const systemAudioButton = document.getElementById("systemAudioButton");
+      const microphoneButton = document.getElementById("microphoneButton");
+      const microphoneSelect = document.getElementById("microphoneSelect");
+      const durationOptions = Array.from(
+        document.querySelectorAll(".duration-option"),
+      );
+      const fpsOptions = Array.from(document.querySelectorAll(".fps-option"));
+      const qualityOptions = Array.from(
+        document.querySelectorAll(".quality-option"),
+      );
+      const recordSound = new Audio("assets/sounds/screenshot-click.mp3");
+      recordSound.preload = "auto";
+
+      let startX = 0;
+      let startY = 0;
+      let isDragging = false;
+      let selectedRect = null;
+      let selectedDuration = 10;
+      let selectedFps = 30;
+      let selectedQuality = "medium";
+      let includeSystemAudio = false;
+      let includeMicrophone = false;
+      let selectedMicrophoneId = "";
+      let isRecording = false;
+      let activeRecording = null;
+
+      function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+      }
+
+      function getRect(currentX, currentY) {
+        const left = Math.min(startX, currentX);
+        const top = Math.min(startY, currentY);
+        const width = Math.abs(currentX - startX);
+        const height = Math.abs(currentY - startY);
+        return { left, top, width, height };
+      }
+
+      function setSelectionRect(rect) {
+        selection.style.left = `${rect.left}px`;
+        selection.style.top = `${rect.top}px`;
+        selection.style.width = `${rect.width}px`;
+        selection.style.height = `${rect.height}px`;
+      }
+
+      function setToolbarPosition(rect) {
+        const gap = 10;
+        toolbar.classList.add("visible");
+
+        const toolbarRect = toolbar.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const below = rect.top + rect.height + gap;
+        const top =
+          below + toolbarRect.height <= viewportHeight
+            ? below
+            : Math.max(gap, rect.top - toolbarRect.height - gap);
+        const centeredLeft = rect.left + rect.width / 2 - toolbarRect.width / 2;
+
+        toolbar.style.left = `${clamp(centeredLeft, gap, viewportWidth - toolbarRect.width - gap)}px`;
+        toolbar.style.top = `${clamp(top, gap, viewportHeight - toolbarRect.height - gap)}px`;
+      }
+
+      function setStatus(message) {
+        status.textContent = message;
+        status.classList.add("visible");
+      }
+
+      function playRecordSound() {
+        recordSound.currentTime = 0;
+        recordSound.play().catch(() => {});
+      }
+
+      function setTimer(secondsRemaining, progress) {
+        timerText.textContent = `${secondsRemaining}s`;
+        timerProgress.style.transform = `scaleX(${progress})`;
+        timer.classList.add("visible");
+      }
+
+      function setTimerPaused(secondsRemaining, progress) {
+        timerText.textContent = `Paused ${secondsRemaining}s`;
+        timerProgress.style.transform = `scaleX(${progress})`;
+        timer.classList.add("visible");
+      }
+
+      function setTimerSaved() {
+        timerText.textContent = "Saved";
+        timerProgress.style.transform = "scaleX(1)";
+        timer.classList.add("visible");
+      }
+
+      function setRecordingControlsDisabled(disabled) {
+        discardRecordingButton.disabled = disabled;
+        redoRecordingButton.disabled = disabled;
+        pauseRecordingButton.disabled = disabled;
+        finishRecordingButton.disabled = disabled;
+      }
+
+      function setPauseControlPaused(paused) {
+        pauseRecordingIcon.classList.toggle("icon-pause", !paused);
+        pauseRecordingIcon.classList.toggle("icon-play", paused);
+        pauseRecordingButton.setAttribute(
+          "aria-label",
+          paused ? "Resume recording" : "Pause recording",
+        );
+        pauseRecordingButton.title = paused ? "Resume recording" : "Pause recording";
+      }
+
+      function getTimerPosition(rect) {
+        const gap = 10;
+        timer.classList.add("visible");
+
+        const timerRect = timer.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const below = rect.top + rect.height + gap;
+        const above = rect.top - timerRect.height - gap;
+        const top =
+          below + timerRect.height <= viewportHeight
+            ? below
+            : Math.max(gap, above);
+        const centeredLeft = rect.left + rect.width / 2 - timerRect.width / 2;
+
+        return {
+          left: clamp(centeredLeft, gap, viewportWidth - timerRect.width - gap),
+          top: clamp(top, gap, viewportHeight - timerRect.height - gap),
+          width: timerRect.width,
+          height: timerRect.height,
+        };
+      }
+
+      function setTimerPosition(rect) {
+        const position = getTimerPosition(rect);
+        timer.style.left = `${position.left}px`;
+        timer.style.top = `${position.top}px`;
+        return position;
+      }
+
+      function getBitsPerSecond() {
+        const megapixels = (selectedRect.width * selectedRect.height) / 1000000;
+        const qualityMultipliers = {
+          low: 1.2,
+          medium: 2.5,
+          high: 5,
+        };
+        const fpsMultiplier = selectedFps / 30;
+        return Math.round(
+          Math.max(
+            900000,
+            megapixels * qualityMultipliers[selectedQuality] * fpsMultiplier * 1000000,
+          ),
+        );
+      }
+
+      function getRecorderOptions(hasAudio) {
+        const candidates = [
+          "video/webm;codecs=vp9,opus",
+          "video/webm;codecs=vp8,opus",
+          "video/webm;codecs=vp9",
+          "video/webm;codecs=vp8",
+          "video/webm",
+        ];
+        const mimeType = candidates.find((type) =>
+          MediaRecorder.isTypeSupported(type),
+        );
+        const options = {
+          videoBitsPerSecond: getBitsPerSecond(),
+        };
+        if (hasAudio) {
+          options.audioBitsPerSecond = 128000;
+        }
+        return mimeType ? { ...options, mimeType } : options;
+      }
+
+      function getDesktopCaptureConstraints(source, captureAudio) {
+        const videoMandatory = {
+          chromeMediaSource: "desktop",
+          chromeMediaSourceId: source.id,
+          minWidth: source.width,
+          maxWidth: source.width,
+          minHeight: source.height,
+          maxHeight: source.height,
+          maxFrameRate: selectedFps,
+        };
+
+        return {
+          audio: captureAudio
+            ? {
+                mandatory: {
+                  chromeMediaSource: "desktop",
+                },
+              }
+            : false,
+          video: {
+            mandatory: videoMandatory,
+          },
+        };
+      }
+
+      async function getDesktopStream(source) {
+        if (!includeSystemAudio) {
+          return navigator.mediaDevices.getusermedia(
+            getDesktopCaptureConstraints(source, false),
+          );
+        }
+
+        try {
+          return await navigator.mediaDevices.getUserMedia(
+            getDesktopCaptureConstraints(source, true),
+          );
+        } catch (error) {
+          console.warn("Could not capture PC audio:", error);
+          return navigator.mediaDevices.getUserMedia(
+            getDesktopCaptureConstraints(source, false),
+          );
+        }
+      }
+
+      function getMicrophoneConstraints() {
+        const audio = {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        };
+
+        if (selectedMicrophoneId) {
+          audio.deviceId = { exact: selectedMicrophoneId };
+        }
+
+        return {
+          audio,
+          video: false,
+        };
+      }
+
+      async function getMicrophoneStream() {
+        if (!includeMicrophone) return null;
+        return navigator.mediaDevices.getUserMedia(getMicrophoneConstraints());
+      }
+
+      function addMixedAudioTracks(recordingStream, audioStreams) {
+        const streamsWithAudio = audioStreams.filter(
+          (stream) => stream && stream.getAudioTracks().length > 0,
+        );
+        if (streamsWithAudio.length === 0) return null;
+
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        const audioContext = new AudioContextClass();
+        const destination = audioContext.createMediaStreamDestination();
+        const sourceNodes = streamsWithAudio.map((stream) => {
+          const sourceStream = new MediaStream(stream.getAudioTracks());
+          const sourceNode = audioContext.createMediaStreamSource(sourceStream);
+          sourceNode.connect(destination);
+          return sourceNode;
+        });
+
+        destination.stream
+          .getAudioTracks()
+          .forEach((track) => recordingStream.addTrack(track));
+
+        return { audioContext, sourceNodes };
+      }
+
+      function stopStream(stream) {
+        stream?.getTracks().forEach((track) => track.stop());
+      }
+
+      async function closeAudioMixer(audioMixer) {
+        if (!audioMixer) return;
+        audioMixer.sourceNodes.forEach((sourceNode) => sourceNode.disconnect());
+        await audioMixer.audioContext.close();
+      }
+
+      function updateAudioControls() {
+        systemAudioButton.classList.toggle("active", includeSystemAudio);
+        systemAudioButton.setAttribute("aria-pressed", String(includeSystemAudio));
+        microphoneButton.classList.toggle("active", includeMicrophone);
+        microphoneButton.setAttribute("aria-pressed", String(includeMicrophone));
+        microphoneSelect.disabled = !includeMicrophone;
+        microphoneSelect.classList.toggle("enabled", includeMicrophone);
+      }
+
+      async function populateMicrophones() {
+        let devices = [];
+
+        try {
+          devices = await navigator.mediaDevices.enumerateDevices();
+        } catch (error) {
+          console.warn("Could not enumerate microphones:", error);
+        }
+
+        const microphones = devices.filter((device) => device.kind === "audioinput");
+        const previousValue = selectedMicrophoneId || microphoneSelect.value;
+        microphoneSelect.replaceChildren();
+
+        if (microphones.length === 0) {
+          microphoneSelect.add(new Option("No microphone", ""));
+          includeMicrophone = false;
+          updateAudioControls();
+          return 0;
+        }
+
+        microphoneSelect.add(new Option("Default microphone", ""));
+        microphones.forEach((device, index) => {
+          const label = device.label || `Microphone ${index + 1}`;
+          microphoneSelect.add(new Option(label, device.deviceId));
+        });
+
+        const hasPreviousValue = Array.from(microphoneSelect.options).some(
+          (option) => option.value === previousValue,
+        );
+        microphoneSelect.value = hasPreviousValue ? previousValue : "";
+        selectedMicrophoneId = microphoneSelect.value;
+        updateAudioControls();
+        return microphones.length;
+      }
+
+      async function requestMicrophoneList() {
+        const permissionStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: false,
+        });
+        stopStream(permissionStream);
+        return populateMicrophones();
+      }
+
+      async function startRecording() {
+        if (!selectedRect || isRecording) return;
+
+        isRecording = true;
+        recordButton.disabled = true;
+        setStatus("Preparing...");
+        document.body.classList.add("recording");
+        setTimer(selectedDuration, 1);
+        const timerRect = setTimerPosition(selectedRect);
+        setRecordingControlsDisabled(true);
+        setPauseControlPaused(false);
+        await window.flingVideo.setRecordingRegion({
+          selection: selectedRect,
+          timer: timerRect,
+        });
+        await window.flingVideo.setIgnoreMouseEvents(true);
+
+        let desktopStream = null;
+        let microphoneStream = null;
+        let croppedStream = null;
+        let audioMixer = null;
+        let animationFrame = 0;
+        let timerAnimationFrame = 0;
+        let stopTimeout = 0;
+        let shouldSaveRecording = true;
+        let postStopAction = "save";
+        let isPaused = false;
+        let isStopping = false;
+        let elapsedBeforePause = 0;
+        let startedAt = 0;
+
+        try {
+          const source = await window.flingVideo.getScreenSource();
+          const streamResults = await Promise.allSettled([
+            getDesktopStream(source),
+            getMicrophoneStream(),
+          ]);
+
+          if (streamResults[0].status === "fulfilled") {
+            desktopStream = streamResults[0].value;
+          }
+          if (streamResults[1].status === "fulfilled") {
+            microphoneStream = streamResults[1].value;
+          }
+
+          const streamError = streamResults.find(
+            (result) => result.status === "rejected",
+          );
+          if (streamError) throw streamError.reason;
+
+          const video = document.createElement("video");
+          video.muted = true;
+          video.srcObject = desktopStream;
+          await video.play();
+
+          const scaleX = video.videoWidth / window.innerWidth;
+          const scaleY = video.videoHeight / window.innerHeight;
+          const crop = {
+            x: Math.round(selectedRect.left * scaleX),
+            y: Math.round(selectedRect.top * scaleY),
+            width: Math.round(selectedRect.width * scaleX),
+            height: Math.round(selectedRect.height * scaleY),
+          };
+
+          const canvas = document.createElement("canvas");
+          canvas.width = crop.width;
+          canvas.height = crop.height;
+          const context = canvas.getContext("2d");
+          croppedStream = canvas.captureStream(selectedFps);
+          audioMixer = addMixedAudioTracks(croppedStream, [
+            desktopStream,
+            microphoneStream,
+          ]);
+
+          const recorder = new MediaRecorder(
+            croppedStream,
+            getRecorderOptions(croppedStream.getAudioTracks().length > 0),
+          );
+          const chunks = [];
+          const totalDurationMs = selectedDuration * 1000;
+
+          function drawFrame() {
+            context.drawImage(
+              video,
+              crop.x,
+              crop.y,
+              crop.width,
+              crop.height,
+              0,
+              0,
+              canvas.width,
+              canvas.height,
+            );
+            animationFrame = requestAnimationFrame(drawFrame);
+          }
+
+          function getElapsedMs(now = performance.now()) {
+            if (isPaused) return elapsedBeforePause;
+            return elapsedBeforePause + now - startedAt;
+          }
+
+          function getRemainingMs(now = performance.now()) {
+            return Math.max(
+              totalDurationMs - Math.min(getElapsedMs(now), totalDurationMs),
+              0,
+            );
+          }
+
+          function scheduleAutoStop() {
+            clearTimeout(stopTimeout);
+            const remainingMs = getRemainingMs();
+
+            if (remainingMs <= 0) {
+              stopRecording("save");
+              return;
+            }
+
+            stopTimeout = setTimeout(() => {
+              stopRecording("save");
+            }, remainingMs);
+          }
+
+          function stopRecording(action) {
+            if (isStopping || recorder.state === "inactive") return;
+
+            isStopping = true;
+            postStopAction = action;
+            shouldSaveRecording = action === "save";
+            setRecordingControlsDisabled(true);
+            clearTimeout(stopTimeout);
+            recorder.stop();
+          }
+
+          function pauseRecording() {
+            if (isStopping || isPaused || recorder.state !== "recording") return;
+
+            elapsedBeforePause = getElapsedMs();
+            isPaused = true;
+            clearTimeout(stopTimeout);
+            cancelAnimationFrame(timerAnimationFrame);
+            recorder.pause();
+
+            const remainingMs = getRemainingMs();
+            setPauseControlPaused(true);
+            setTimerPaused(
+              Math.ceil(remainingMs / 1000),
+              remainingMs / totalDurationMs,
+            );
+          }
+
+          function resumeRecording() {
+            if (isStopping || !isPaused || recorder.state !== "paused") return;
+
+            recorder.resume();
+            isPaused = false;
+            startedAt = performance.now();
+            setPauseControlPaused(false);
+            scheduleAutoStop();
+            timerAnimationFrame = requestAnimationFrame(updateTimerFrame);
+          }
+
+          function togglePauseRecording() {
+            if (isPaused) {
+              resumeRecording();
+            } else {
+              pauseRecording();
+            }
+          }
+
+          function updateTimerFrame(now) {
+            const remainingMs = getRemainingMs(now);
+            const remainingSeconds = Math.ceil(remainingMs / 1000);
+            const progress = remainingMs / totalDurationMs;
+
+            setTimer(remainingSeconds, progress);
+
+            if (remainingMs <= 0) {
+              stopRecording("save");
+              return;
+            }
+
+            if (!isPaused && recorder.state !== "inactive") {
+              timerAnimationFrame = requestAnimationFrame(updateTimerFrame);
+            }
+          }
+
+          recorder.addEventListener("dataavailable", (event) => {
+            if (event.data.size > 0) {
+              chunks.push(event.data);
+            }
+          });
+
+          recorder.addEventListener("stop", async () => {
+            cancelAnimationFrame(animationFrame);
+            cancelAnimationFrame(timerAnimationFrame);
+            clearTimeout(stopTimeout);
+            stopStream(desktopStream);
+            stopStream(microphoneStream);
+            stopStream(croppedStream);
+            await closeAudioMixer(audioMixer).catch((error) =>
+              console.warn("Could not close audio mixer:", error),
+            );
+
+            if (!shouldSaveRecording) {
+              await window.flingVideo.setIgnoreMouseEvents(false);
+              await window.flingVideo.setRecordingRegion(null);
+              activeRecording = null;
+              isRecording = false;
+              setPauseControlPaused(false);
+              setRecordingControlsDisabled(false);
+
+              if (postStopAction === "close") {
+                window.flingVideo.closeOverlay();
+                return;
+              }
+
+              document.body.classList.remove("recording");
+              timer.classList.remove("visible");
+              recordButton.disabled = false;
+
+              if (postStopAction === "redo") {
+                toolbar.classList.remove("visible");
+                setStatus("Restarting...");
+                startRecording().catch(handleRecordingStartError);
+              }
+
+              return;
+            }
+
+            try {
+              setTimer(0, 0);
+              const blob = new Blob(chunks, { type: recorder.mimeType });
+              const savedPath = await window.flingVideo.saveRecording(
+                await blob.arrayBuffer(),
+              );
+              await window.flingVideo.setIgnoreMouseEvents(false);
+              await window.flingVideo.setRecordingRegion(null);
+              activeRecording = null;
+              isRecording = false;
+              setPauseControlPaused(false);
+              setTimerSaved();
+              setTimeout(() => window.flingVideo.closeOverlay(), 600);
+              console.log(`Saved recording to ${savedPath}`);
+            } catch (error) {
+              console.error("Could not save recording:", error);
+              await window.flingVideo.setIgnoreMouseEvents(false);
+              await window.flingVideo.setRecordingRegion(null);
+              activeRecording = null;
+              document.body.classList.remove("recording");
+              toolbar.classList.add("visible");
+              timer.classList.remove("visible");
+              recordButton.disabled = false;
+              setRecordingControlsDisabled(false);
+              setPauseControlPaused(false);
+              setStatus("Could not save recording");
+              isRecording = false;
+            }
+          });
+
+          setRecordingControlsDisabled(false);
+          setPauseControlPaused(false);
+          activeRecording = {
+            cancel: () => stopRecording("close"),
+            redo: () => stopRecording("redo"),
+            togglePause: () => togglePauseRecording(),
+            finish: () => stopRecording("save"),
+          };
+          drawFrame();
+          recorder.start();
+          startedAt = performance.now();
+          scheduleAutoStop();
+          timerAnimationFrame = requestAnimationFrame(updateTimerFrame);
+        } catch (error) {
+          cancelAnimationFrame(animationFrame);
+          cancelAnimationFrame(timerAnimationFrame);
+          clearTimeout(stopTimeout);
+          stopStream(desktopStream);
+          stopStream(microphoneStream);
+          stopStream(croppedStream);
+          await closeAudioMixer(audioMixer).catch(() => {});
+          await window.flingVideo.setIgnoreMouseEvents(false);
+          await window.flingVideo.setRecordingRegion(null);
+          activeRecording = null;
+          document.body.classList.remove("recording");
+          toolbar.classList.add("visible");
+          timer.classList.remove("visible");
+          recordButton.disabled = false;
+          setRecordingControlsDisabled(false);
+          setPauseControlPaused(false);
+          isRecording = false;
+          throw error;
+        }
+      }
+
+      async function handleRecordingStartError(error) {
+        console.error("Could not start recording:", error);
+        await window.flingVideo.setIgnoreMouseEvents(false);
+        await window.flingVideo.setRecordingRegion(null);
+        activeRecording = null;
+        document.body.classList.remove("recording");
+        toolbar.classList.add("visible");
+        timer.classList.remove("visible");
+        recordButton.disabled = false;
+        setRecordingControlsDisabled(false);
+        setPauseControlPaused(false);
+        setStatus("Could not start recording");
+        isRecording = false;
+      }
+
+      overlay.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || isRecording) return;
+        isDragging = true;
+        startX = event.clientX;
+        startY = event.clientY;
+        selectedRect = null;
+        toolbar.classList.remove("visible");
+        status.classList.remove("visible");
+        selection.classList.add("visible");
+        setSelectionRect({ left: startX, top: startY, width: 0, height: 0 });
+        overlay.setPointerCapture(event.pointerId);
+      });
+
+      overlay.addEventListener("pointermove", (event) => {
+        if (!isDragging) return;
+        const rect = getRect(event.clientX, event.clientY);
+        setSelectionRect(rect);
+      });
+
+      overlay.addEventListener("pointerup", (event) => {
+        if (!isDragging) return;
+        isDragging = false;
+        overlay.releasePointerCapture(event.pointerId);
+
+        const rect = getRect(event.clientX, event.clientY);
+        if (rect.width < 8 || rect.height < 8) {
+          selection.classList.remove("visible");
+          return;
+        }
+
+        selectedRect = rect;
+        setSelectionRect(rect);
+        setToolbarPosition(rect);
+      });
+
+      durationOptions.forEach((button) => {
+        button.addEventListener("click", () => {
+          selectedDuration = Number(button.dataset.duration);
+          durationOptions.forEach((option) =>
+            option.classList.toggle("active", option === button),
+          );
+        });
+      });
+
+      fpsOptions.forEach((button) => {
+        button.addEventListener("click", () => {
+          selectedFps = Number(button.dataset.fps);
+          fpsOptions.forEach((option) =>
+            option.classList.toggle("active", option === button),
+          );
+        });
+      });
+
+      qualityOptions.forEach((button) => {
+        button.addEventListener("click", () => {
+          selectedQuality = button.dataset.quality;
+          qualityOptions.forEach((option) =>
+            option.classList.toggle("active", option === button),
+          );
+        });
+      });
+
+      systemAudioButton.addEventListener("click", () => {
+        includeSystemAudio = !includeSystemAudio;
+        updateAudioControls();
+      });
+
+      microphoneButton.addEventListener("click", async () => {
+        if (includeMicrophone) {
+          includeMicrophone = false;
+          updateAudioControls();
+          return;
+        }
+
+        microphoneButton.disabled = true;
+        setStatus("Checking microphone...");
+
+        try {
+          const microphoneCount = await requestMicrophoneList();
+          if (microphoneCount === 0) {
+            throw new Error("No microphone input devices found");
+          }
+          includeMicrophone = true;
+          status.classList.remove("visible");
+        } catch (error) {
+          console.error("Could not access microphone:", error);
+          includeMicrophone = false;
+          setStatus("Microphone unavailable");
+        } finally {
+          microphoneButton.disabled = false;
+          updateAudioControls();
+        }
+      });
+
+      microphoneSelect.addEventListener("change", () => {
+        selectedMicrophoneId = microphoneSelect.value;
+      });
+
+      discardRecordingButton.addEventListener("click", () => {
+        activeRecording?.cancel();
+      });
+
+      redoRecordingButton.addEventListener("click", () => {
+        activeRecording?.redo();
+      });
+
+      pauseRecordingButton.addEventListener("click", () => {
+        activeRecording?.togglePause();
+      });
+
+      finishRecordingButton.addEventListener("click", () => {
+        activeRecording?.finish();
+      });
+
+      recordButton.addEventListener("click", () => {
+        playRecordSound();
+        startRecording().catch(handleRecordingStartError);
+      });
+
+      cancelButton.addEventListener("click", () => {
+        window.flingVideo.closeOverlay();
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !isRecording) {
+          window.flingVideo.closeOverlay();
+        }
+      });
+
+      populateMicrophones();
+      updateAudioControls();
+
+      navigator.mediaDevices.addEventListener?.("devicechange", () => {
+        populateMicrophones();
+      });
+    </script>
+  </body>
+</html>

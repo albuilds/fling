@@ -15,6 +15,7 @@ import {
   screen,
   desktopCapturer,
   clipboard,
+  session,
 } from "electron";
 import fs from "fs/promises";
 import path from "path";
@@ -32,10 +33,29 @@ type ScreenshotOptions = {
   uploadToServer: boolean;
 };
 
+type ScreenSourceInfo = {
+  id: string;
+  width: number;
+  height: number;
+};
+
+type VideoRect = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+type VideoRecordingRegion = {
+  selection: VideoRect;
+  timer: VideoRect;
+};
+
 class FlingApp {
   private tray: Tray | null = null;
   private win: BrowserWindow | null = null;
   private screenshotOverlay: BrowserWindow | null = null;
+  private videoOverlay: BrowserWindow | null = null;
 
   private createWindow() {
     this.win = new BrowserWindow({
@@ -98,6 +118,41 @@ class FlingApp {
     });
   }
 
+  private showVideoOverlay() {
+    if (this.videoOverlay) {
+      this.videoOverlay.focus();
+      return;
+    }
+
+    const { bounds } = screen.getPrimaryDisplay();
+    this.videoOverlay = new BrowserWindow({
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      show: false,
+      frame: false,
+      transparent: true,
+      resizable: false,
+      movable: false,
+      fullscreenable: false,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      webPreferences: {
+        preload: path.join(__dirname, "preload.js"),
+      },
+    });
+
+    this.videoOverlay.setAlwaysOnTop(true, "screen-saver");
+    this.videoOverlay.loadFile(
+      path.join(__dirname, "../src/video-overlay.html"),
+    );
+    this.videoOverlay.once("ready-to-show", () => this.videoOverlay?.show());
+    this.videoOverlay.on("closed", () => {
+      this.videoOverlay = null;
+    });
+  }
+
   private createTray() {
     const icon = nativeImage.createEmpty();
     this.tray = new Tray(icon);
@@ -110,6 +165,11 @@ class FlingApp {
           label: "Capture Region",
           accelerator: "CommandOrControl+Shift+S",
           click: () => this.showScreenshotOverlay(),
+        },
+        {
+          label: "Record Region",
+          accelerator: "CommandOrControl+Shift+R",
+          click: () => this.showVideoOverlay(),
         },
         { type: "separator" },
         {
@@ -128,18 +188,52 @@ class FlingApp {
   start() {
     app.setAppUserModelId("fling");
     Menu.setApplicationMenu(null);
+    this.registerMediaPermissions();
     this.registerWindowControls();
     this.registerScreenshotControls();
+    this.registerVideoControls();
     this.createWindow();
     this.createTray();
-    const registered = globalShortcut.register("CommandOrControl+Shift+S", () =>
-      this.showScreenshotOverlay(),
+    const screenshotShortcutRegistered = globalShortcut.register(
+      "CommandOrControl+Shift+S",
+      () => this.showScreenshotOverlay(),
     );
-    if (!registered) {
+    if (!screenshotShortcutRegistered) {
       console.warn(
         "Could not register screenshot shortcut: CommandOrControl+Shift+S",
       );
     }
+    const videoShortcutRegistered = globalShortcut.register(
+      "CommandOrControl+Shift+R",
+      () => this.showVideoOverlay(),
+    );
+    if (!videoShortcutRegistered) {
+      console.warn("Could not register video shortcut: CommandOrControl+Shift+R");
+    }
+  }
+
+  private registerMediaPermissions() {
+    session.defaultSession.setPermissionCheckHandler(
+      (webContents, permission) => {
+        return (
+          permission === "media" && this.isTrustedAppWebContents(webContents)
+        );
+      },
+    );
+
+    session.defaultSession.setPermissionRequestHandler(
+      (webContents, permission, callback) => {
+        callback(
+          (permission === "media" || permission === "display-capture") &&
+            this.isTrustedAppWebContents(webContents),
+        );
+      },
+    );
+  }
+
+  private isTrustedAppWebContents(webContents: Electron.WebContents | null) {
+    const url = webContents?.getURL() ?? "";
+    return url.startsWith("file://");
   }
 
   private registerWindowControls() {
@@ -169,6 +263,36 @@ class FlingApp {
         await this.captureScreenshot(rect, options);
       },
     );
+  }
+
+  private registerVideoControls() {
+    ipcMain.on("video-overlay:close", () => this.videoOverlay?.close());
+    ipcMain.handle("video-overlay:set-ignore-mouse-events", (_event, ignore) => {
+      if (!this.videoOverlay) return;
+
+      const shouldIgnoreMouse = ignore === true;
+      this.setVideoOverlayInputPassthrough(shouldIgnoreMouse);
+    });
+    ipcMain.handle(
+      "video-overlay:set-recording-region",
+      (_event, region: VideoRect | VideoRecordingRegion | null) => {
+        this.setVideoOverlayRecordingRegion(region);
+      },
+    );
+    ipcMain.handle("video-overlay:get-source", async () => {
+      return this.getPrimaryScreenSourceInfo();
+    });
+    ipcMain.handle("video-overlay:save", async (_event, data: ArrayBuffer) => {
+      const folder = path.join(app.getPath("documents"), "Fling Recordings");
+      await fs.mkdir(folder, { recursive: true });
+
+      const savedPath = path.join(
+        folder,
+        `fling-recording-${this.timestampForFileName()}.webm`,
+      );
+      await fs.writeFile(savedPath, Buffer.from(new Uint8Array(data)));
+      return savedPath;
+    });
   }
 
   private async captureScreenshot(
@@ -264,6 +388,113 @@ class FlingApp {
       sources.find((source) => source.display_id === String(displayId)) ??
       sources[0]
     );
+  }
+
+  private async getPrimaryScreenSourceInfo(): Promise<ScreenSourceInfo> {
+    const display = screen.getPrimaryDisplay();
+    const scaleFactor = display.scaleFactor || 1;
+    const source = await this.getPrimaryScreenSource(
+      display.id,
+      display.bounds,
+      scaleFactor,
+    );
+
+    return {
+      id: source.id,
+      width: Math.round(display.bounds.width * scaleFactor),
+      height: Math.round(display.bounds.height * scaleFactor),
+    };
+  }
+
+  private setVideoOverlayRecordingRegion(
+    region: VideoRect | VideoRecordingRegion | null,
+  ) {
+    if (!this.videoOverlay) return;
+
+    const bounds = this.videoOverlay.getBounds();
+    if (!region) {
+      this.videoOverlay.setShape([
+        { x: 0, y: 0, width: bounds.width, height: bounds.height },
+      ]);
+      return;
+    }
+
+    const selection = this.isVideoRecordingRegion(region)
+      ? region.selection
+      : region;
+    const timer = this.isVideoRecordingRegion(region)
+      ? region.timer
+      : this.getDefaultVideoTimerRect(bounds);
+    const border = 4;
+    const left = Math.round(selection.left);
+    const top = Math.round(selection.top);
+    const width = Math.round(selection.width);
+    const height = Math.round(selection.height);
+    const shape = [
+      { left, top, width, height: border },
+      { left, top: top + height - border, width, height: border },
+      { left, top, width: border, height },
+      { left: left + width - border, top, width: border, height },
+      timer,
+    ]
+      .map((rect) => this.toVideoOverlayShapeRect(rect, bounds))
+      .filter((rect): rect is Electron.Rectangle => rect !== null);
+
+    this.videoOverlay.setShape(shape);
+  }
+
+  private isVideoRecordingRegion(
+    region: VideoRect | VideoRecordingRegion,
+  ): region is VideoRecordingRegion {
+    return "selection" in region && "timer" in region;
+  }
+
+  private getDefaultVideoTimerRect(bounds: Electron.Rectangle): VideoRect {
+    const timerWidth = 132;
+    const timerHeight = 58;
+
+    return {
+      left: Math.round((bounds.width - timerWidth) / 2),
+      top: bounds.height - timerHeight - 12,
+      width: timerWidth,
+      height: timerHeight,
+    };
+  }
+
+  private toVideoOverlayShapeRect(
+    rect: VideoRect,
+    bounds: Electron.Rectangle,
+  ): Electron.Rectangle | null {
+    const x = Math.max(0, Math.min(Math.round(rect.left), bounds.width));
+    const y = Math.max(0, Math.min(Math.round(rect.top), bounds.height));
+    const right = Math.max(
+      x,
+      Math.min(Math.round(rect.left + rect.width), bounds.width),
+    );
+    const bottom = Math.max(
+      y,
+      Math.min(Math.round(rect.top + rect.height), bounds.height),
+    );
+    const width = right - x;
+    const height = bottom - y;
+
+    if (width <= 0 || height <= 0) return null;
+
+    return { x, y, width, height };
+  }
+
+  private setVideoOverlayInputPassthrough(enabled: boolean) {
+    if (!this.videoOverlay) return;
+
+    if (enabled) {
+      this.videoOverlay.setIgnoreMouseEvents(false);
+      this.videoOverlay.setFocusable(false);
+      this.videoOverlay.blur();
+      return;
+    }
+
+    this.videoOverlay.setFocusable(true);
+    this.videoOverlay.setIgnoreMouseEvents(false);
   }
 
   private normalizeScreenshotRect(

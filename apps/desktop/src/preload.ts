@@ -18,3 +18,14 @@ contextBridge.exposeInMainWorld("flingScreenshot", {
   onError: (callback: () => void) =>
     ipcRenderer.on("screenshot-overlay:error", callback),
 });
+
+contextBridge.exposeInMainWorld("flingVideo", {
+  closeOverlay: () => ipcRenderer.send("video-overlay:close"),
+  setIgnoreMouseEvents: (ignore: boolean) =>
+    ipcRenderer.invoke("video-overlay:set-ignore-mouse-events", ignore),
+  setRecordingRegion: (rect: unknown) =>
+    ipcRenderer.invoke("video-overlay:set-recording-region", rect),
+  getScreenSource: () => ipcRenderer.invoke("video-overlay:get-source"),
+  saveRecording: (data: ArrayBuffer) =>
+    ipcRenderer.invoke("video-overlay:save", data),
+});

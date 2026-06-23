@@ -287,6 +287,52 @@
         color: var(--danger);
       }
 
+      .settings-select {
+        --select-bg: var(--bg);
+        --select-arrow: rgba(232, 232, 240, 0.66);
+        appearance: none;
+        min-width: 164px;
+        height: 34px;
+        padding: 0 34px 0 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background:
+          linear-gradient(45deg, transparent 50%, var(--select-arrow) 50%)
+            calc(100% - 17px) 13px / 5px 5px no-repeat,
+          linear-gradient(135deg, var(--select-arrow) 50%, transparent 50%)
+            calc(100% - 12px) 13px / 5px 5px no-repeat,
+          var(--select-bg);
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+        color: var(--text);
+        font: 600 13px/1 var(--font);
+        outline: none;
+        cursor: pointer;
+        transition:
+          border-color 0.15s,
+          background-color 0.15s,
+          box-shadow 0.15s,
+          color 0.15s;
+      }
+
+      .settings-select:hover {
+        --select-bg: rgba(124, 90, 248, 0.08);
+        --select-arrow: rgba(232, 232, 240, 0.86);
+        border-color: rgba(124, 90, 248, 0.48);
+      }
+
+      .settings-select:focus {
+        --select-bg: rgba(124, 90, 248, 0.1);
+        border-color: var(--accent);
+        box-shadow:
+          0 0 0 1px rgba(124, 90, 248, 0.2) inset,
+          0 0 0 3px var(--accent-glow);
+      }
+
+      .settings-select option {
+        background: var(--surface);
+        color: var(--text);
+      }
+
       /* ── Save bar ── */
       footer {
         padding: 14px 28px;
@@ -588,18 +634,7 @@
             <strong>Upload quality</strong>
             <span>Higher quality means larger file sizes</span>
           </div>
-          <select
-            style="
-              background: var(--bg);
-              border: 1px solid var(--border);
-              color: var(--text);
-              border-radius: 8px;
-              padding: 6px 10px;
-              font-size: 13px;
-              outline: none;
-              cursor: pointer;
-            "
-          >
+          <select class="settings-select">
             <option>High (default)</option>
             <option>Medium</option>
             <option>Low</option>
