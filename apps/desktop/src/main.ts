@@ -16,6 +16,7 @@ import {
   desktopCapturer,
   clipboard,
   session,
+  nativeTheme,
 } from "electron";
 import fs from "fs/promises";
 import path from "path";
@@ -38,6 +39,9 @@ type ShortcutId = "captureRegion" | "captureFullscreen" | "recordVideo";
 type ShortcutSettings = Record<ShortcutId, string | null>;
 
 type FlingSettings = {
+  appearance: {
+    theme: "system" | "dark" | "light";
+  };
   afterCapture: {
     openBrowser: boolean;
     copyUrl: boolean;
@@ -79,6 +83,9 @@ type VideoRecordingRegion = {
 };
 
 const DEFAULT_SETTINGS: FlingSettings = {
+  appearance: {
+    theme: "system",
+  },
   afterCapture: {
     openBrowser: true,
     copyUrl: true,
@@ -306,6 +313,7 @@ class FlingApp {
     ipcMain.handle("settings:get", () => this.cloneSettings(this.settings));
     ipcMain.handle("settings:save", async (_event, requestedSettings) => {
       this.settings = this.normalizeSettings(requestedSettings);
+      this.applyTheme();
       await this.saveSettings();
       this.registerGlobalShortcuts();
       this.updateTrayMenu();
@@ -313,6 +321,7 @@ class FlingApp {
     });
     ipcMain.handle("settings:reset", async () => {
       this.settings = this.cloneSettings(DEFAULT_SETTINGS);
+      this.applyTheme();
       await this.saveSettings();
       this.registerGlobalShortcuts();
       this.updateTrayMenu();
@@ -447,6 +456,7 @@ class FlingApp {
       }
       this.settings = this.cloneSettings(DEFAULT_SETTINGS);
     }
+    this.applyTheme();
   }
 
   private async saveSettings() {
@@ -501,12 +511,20 @@ class FlingApp {
 
   private normalizeSettings(settings: unknown): FlingSettings {
     const requested = this.asRecord(settings);
+    const appearance = this.asRecord(requested.appearance);
     const afterCapture = this.asRecord(requested.afterCapture);
     const screenshot = this.asRecord(requested.screenshot);
     const recording = this.asRecord(requested.recording);
     const shortcuts = this.asRecord(requested.shortcuts);
 
     return {
+      appearance: {
+        theme: this.oneOf(
+          appearance.theme,
+          ["system", "dark", "light"],
+          DEFAULT_SETTINGS.appearance.theme,
+        ),
+      },
       afterCapture: {
         openBrowser: this.booleanOrDefault(
           afterCapture.openBrowser,
@@ -605,6 +623,10 @@ class FlingApp {
 
   private cloneSettings(settings: FlingSettings): FlingSettings {
     return JSON.parse(JSON.stringify(settings)) as FlingSettings;
+  }
+
+  private applyTheme() {
+    nativeTheme.themeSource = this.settings.appearance.theme;
   }
 
   private writeScreenshotToClipboard(image: Electron.NativeImage) {

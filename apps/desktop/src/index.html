@@ -14,6 +14,7 @@
       }
 
       :root {
+        color-scheme: dark;
         --bg: #0d0d12;
         --surface: #15151e;
         --border: #222230;
@@ -25,6 +26,34 @@
         --success: #5af8a0;
         --radius: 12px;
         --font: -apple-system, "Segoe UI", sans-serif;
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) {
+          color-scheme: light;
+          --bg: #f7f7fb;
+          --surface: #ffffff;
+          --border: #ddddeb;
+          --accent: #6f4df2;
+          --accent-glow: rgba(111, 77, 242, 0.18);
+          --text: #292937;
+          --muted: #626176;
+          --danger: #dc433d;
+          --success: #12824b;
+        }
+      }
+
+      :root[data-theme="light"] {
+        color-scheme: light;
+        --bg: #f7f7fb;
+        --surface: #ffffff;
+        --border: #ddddeb;
+        --accent: #6f4df2;
+        --accent-glow: rgba(111, 77, 242, 0.18);
+        --text: #292937;
+        --muted: #626176;
+        --danger: #dc433d;
+        --success: #12824b;
       }
 
       html {
@@ -400,6 +429,72 @@
       *::-webkit-scrollbar-thumb:hover {
         background: #303044;
       }
+
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) header {
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), var(--bg));
+        }
+
+        :root:not([data-theme="dark"]) header h1 {
+          background: linear-gradient(135deg, #101018 40%, var(--accent));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        :root:not([data-theme="dark"]) .window-control {
+          color: var(--text);
+        }
+
+        :root:not([data-theme="dark"]) .window-control:hover,
+        :root:not([data-theme="dark"]) .row:hover {
+          background: rgba(18, 18, 28, 0.04);
+        }
+
+        :root:not([data-theme="dark"]) .settings-select {
+          --select-arrow: rgba(41, 41, 55, 0.66);
+          box-shadow: 0 0 0 1px rgba(18, 18, 28, 0.02) inset;
+        }
+
+        :root:not([data-theme="dark"]) .settings-select:hover {
+          --select-arrow: rgba(41, 41, 55, 0.86);
+        }
+
+        :root:not([data-theme="dark"]) .btn-primary {
+          color: #fff;
+        }
+      }
+
+      :root[data-theme="light"] header {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), var(--bg));
+      }
+
+      :root[data-theme="light"] header h1 {
+        background: linear-gradient(135deg, #101018 40%, var(--accent));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      :root[data-theme="light"] .window-control {
+        color: var(--text);
+      }
+
+      :root[data-theme="light"] .window-control:hover,
+      :root[data-theme="light"] .row:hover {
+        background: rgba(18, 18, 28, 0.04);
+      }
+
+      :root[data-theme="light"] .settings-select {
+        --select-arrow: rgba(41, 41, 55, 0.66);
+        box-shadow: 0 0 0 1px rgba(18, 18, 28, 0.02) inset;
+      }
+
+      :root[data-theme="light"] .settings-select:hover {
+        --select-arrow: rgba(41, 41, 55, 0.86);
+      }
+
+      :root[data-theme="light"] .btn-primary {
+        color: #fff;
+      }
     </style>
   </head>
   <body>
@@ -479,6 +574,38 @@
     </header>
 
     <main>
+      <!-- Appearance -->
+      <div class="section">
+        <div class="section-header">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+          </svg>
+          Appearance
+        </div>
+
+        <div class="row">
+          <div class="row-label">
+            <strong>Theme</strong>
+            <span>Follow your system setting or choose a fixed theme</span>
+          </div>
+          <select class="settings-select" id="theme">
+            <option value="system">System</option>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </div>
+      </div>
+
       <!-- After Capture -->
       <div class="section">
         <div class="section-header">
@@ -740,6 +867,9 @@
           captureFullscreen: "CommandOrControl+Shift+F",
           recordVideo: "CommandOrControl+Shift+R",
         },
+        appearance: {
+          theme: "system",
+        },
       };
 
       let settings = clone(DEFAULT_SETTINGS);
@@ -797,6 +927,10 @@
         settings = {
           ...clone(DEFAULT_SETTINGS),
           ...nextSettings,
+          appearance: {
+            ...DEFAULT_SETTINGS.appearance,
+            ...nextSettings?.appearance,
+          },
           afterCapture: {
             ...DEFAULT_SETTINGS.afterCapture,
             ...nextSettings?.afterCapture,
@@ -818,6 +952,8 @@
         Object.keys(shortcuts).forEach((key) => delete shortcuts[key]);
         Object.assign(shortcuts, settings.shortcuts);
 
+        applyTheme(settings.appearance.theme);
+        document.getElementById("theme").value = settings.appearance.theme;
         document.getElementById("openBrowser").checked =
           settings.afterCapture.openBrowser;
         document.getElementById("copyUrl").checked = settings.afterCapture.copyUrl;
@@ -845,6 +981,9 @@
         const saveLocally = document.getElementById("saveLocal").checked;
 
         return {
+          appearance: {
+            theme: document.getElementById("theme").value,
+          },
           afterCapture: {
             openBrowser: document.getElementById("openBrowser").checked,
             copyUrl: document.getElementById("copyUrl").checked,
@@ -868,6 +1007,15 @@
           shortcuts: { ...shortcuts },
         };
       }
+
+      function applyTheme(theme) {
+        document.documentElement.dataset.theme =
+          theme === "light" || theme === "dark" ? theme : "system";
+      }
+
+      document.getElementById("theme").addEventListener("change", (event) => {
+        applyTheme(event.target.value);
+      });
 
       // Shortcut recording
       let recording = null;

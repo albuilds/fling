@@ -14,6 +14,7 @@
       }
 
       :root {
+        color-scheme: dark;
         --bg: #0d0d12;
         --surface: #15151e;
         --border: #222230;
@@ -25,6 +26,34 @@
         --success: #5af8a0;
         --radius: 12px;
         --font: -apple-system, "Segoe UI", sans-serif;
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) {
+          color-scheme: light;
+          --bg: #f7f7fb;
+          --surface: #ffffff;
+          --border: #ddddeb;
+          --accent: #6f4df2;
+          --accent-glow: rgba(111, 77, 242, 0.18);
+          --text: #292937;
+          --muted: #626176;
+          --danger: #dc433d;
+          --success: #12824b;
+        }
+      }
+
+      :root[data-theme="light"] {
+        color-scheme: light;
+        --bg: #f7f7fb;
+        --surface: #ffffff;
+        --border: #ddddeb;
+        --accent: #6f4df2;
+        --accent-glow: rgba(111, 77, 242, 0.18);
+        --text: #292937;
+        --muted: #626176;
+        --danger: #dc433d;
+        --success: #12824b;
       }
 
       html {
@@ -283,6 +312,46 @@
         background: #303044;
       }
 
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) header {
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), var(--bg));
+        }
+
+        :root:not([data-theme="dark"]) header h1 {
+          background: linear-gradient(135deg, #101018 40%, var(--accent));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        :root:not([data-theme="dark"]) .window-control {
+          color: var(--text);
+        }
+
+        :root:not([data-theme="dark"]) .window-control:hover,
+        :root:not([data-theme="dark"]) .upload-row:hover {
+          background: rgba(18, 18, 28, 0.04);
+        }
+      }
+
+      :root[data-theme="light"] header {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), var(--bg));
+      }
+
+      :root[data-theme="light"] header h1 {
+        background: linear-gradient(135deg, #101018 40%, var(--accent));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      :root[data-theme="light"] .window-control {
+        color: var(--text);
+      }
+
+      :root[data-theme="light"] .window-control:hover,
+      :root[data-theme="light"] .upload-row:hover {
+        background: rgba(18, 18, 28, 0.04);
+      }
+
       @media (max-width: 620px) {
         .upload-row {
           grid-template-columns: 40px minmax(0, 1fr);
@@ -407,6 +476,16 @@
         button.addEventListener("click", () => {
           window.flingWindow?.[button.dataset.windowAction]?.();
         });
+      });
+
+      function applyTheme(theme) {
+        document.documentElement.dataset.theme =
+          theme === "light" || theme === "dark" ? theme : "system";
+      }
+
+      window.addEventListener("DOMContentLoaded", async () => {
+        const settings = await window.flingSettings?.get?.();
+        applyTheme(settings?.appearance?.theme ?? "system");
       });
 
       const uploads = [
