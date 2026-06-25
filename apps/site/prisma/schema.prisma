@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CaptureType {
+  SCREENSHOT
+  VIDEO
+}
+
+model Account {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  captures     Capture[]
+  deviceTokens DeviceToken[]
+}
+
+model DeviceToken {
+  id         String    @id @default(cuid())
+  accountId  String
+  tokenHash  String    @unique
+  name       String?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  account    Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  captures   Capture[]
+
+  @@index([accountId])
+  @@index([revokedAt])
+}
+
+model Capture {
+  id            String        @id @default(cuid())
+  accountId     String
+  deviceTokenId String?
+  publicId      String        @unique @default(cuid())
+  type          CaptureType
+  title         String
+  mimeType      String
+  storageKey    String        @unique
+  byteSize      BigInt
+  durationMs    Int?
+  expiresAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  account       Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  deviceToken   DeviceToken?  @relation(fields: [deviceTokenId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, createdAt])
+  @@index([accountId, type])
+  @@index([expiresAt])
+}
