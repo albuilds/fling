@@ -150,6 +150,7 @@ class FlingApp {
     }
 
     const { bounds } = screen.getPrimaryDisplay();
+    const shouldUseFullscreenOverlay = process.platform === "win32";
     this.screenshotOverlay = new BrowserWindow({
       x: bounds.x,
       y: bounds.y,
@@ -157,10 +158,11 @@ class FlingApp {
       height: bounds.height,
       show: false,
       frame: false,
+      fullscreen: shouldUseFullscreenOverlay,
       transparent: true,
       resizable: false,
       movable: false,
-      fullscreenable: false,
+      fullscreenable: shouldUseFullscreenOverlay,
       skipTaskbar: true,
       alwaysOnTop: true,
       webPreferences: {
@@ -169,6 +171,7 @@ class FlingApp {
     });
 
     this.screenshotOverlay.setAlwaysOnTop(true, "screen-saver");
+    this.screenshotOverlay.setFullScreen(shouldUseFullscreenOverlay);
     this.screenshotOverlay.loadFile(
       path.join(__dirname, "../src/screenshot-overlay.html"),
     );
@@ -187,6 +190,7 @@ class FlingApp {
     }
 
     const { bounds } = screen.getPrimaryDisplay();
+    const shouldUseFullscreenOverlay = process.platform === "win32";
     this.videoOverlay = new BrowserWindow({
       x: bounds.x,
       y: bounds.y,
@@ -194,10 +198,11 @@ class FlingApp {
       height: bounds.height,
       show: false,
       frame: false,
+      fullscreen: shouldUseFullscreenOverlay,
       transparent: true,
       resizable: false,
       movable: false,
-      fullscreenable: false,
+      fullscreenable: shouldUseFullscreenOverlay,
       skipTaskbar: true,
       alwaysOnTop: true,
       webPreferences: {
@@ -206,6 +211,7 @@ class FlingApp {
     });
 
     this.videoOverlay.setAlwaysOnTop(true, "screen-saver");
+    this.videoOverlay.setFullScreen(shouldUseFullscreenOverlay);
     this.videoOverlay.loadFile(
       path.join(__dirname, "../src/video-overlay.html"),
     );
