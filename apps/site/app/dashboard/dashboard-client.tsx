@@ -14,42 +14,16 @@ import {
   Zap,
 } from "lucide-react";
 
-const initialCaptures = [
-  {
-    id: "product-walkthrough",
-    type: "video",
-    title: "Product walkthrough",
-    meta: "2:14 MP4",
-    expires: "12h 48m",
-    size: "84 MB",
-  },
-  {
-    id: "checkout-bug",
-    type: "image",
-    title: "Checkout bug",
-    meta: "PNG screenshot",
-    expires: "2d 3h",
-    size: "3.2 MB",
-  },
-  {
-    id: "settings-demo",
-    type: "video",
-    title: "Settings demo",
-    meta: "0:38 MP4",
-    expires: "5d 19h",
-    size: "28 MB",
-  },
-  {
-    id: "homepage-hero",
-    type: "image",
-    title: "Homepage hero notes",
-    meta: "PNG screenshot",
-    expires: "6d 4h",
-    size: "5.8 MB",
-  },
-] as const;
-
-type Capture = (typeof initialCaptures)[number];
+type Capture = {
+  id: string;
+  publicId: string;
+  type: "video" | "image";
+  title: string;
+  mimeType: string;
+  byteSize: number;
+  durationMs: number | null;
+  expiresAt: string | null;
+};
 type Filter = "all" | Capture["type"];
 type DashboardUser = {
   name?: string | null;
@@ -71,9 +45,52 @@ function Logo() {
   );
 }
 
-export default function DashboardClient({ user }: { user: DashboardUser }) {
+function formatBytes(bytes: number) {
+  if (bytes === 0) return "0 B";
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const unitIndex = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
+  const value = bytes / 1024 ** unitIndex;
+
+  return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function formatDuration(durationMs: number | null) {
+  if (durationMs === null) return null;
+
+  const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function formatExpiry(expiresAt: string | null) {
+  if (!expiresAt) return "No expiry";
+
+  const remainingMs = new Date(expiresAt).getTime() - Date.now();
+  if (remainingMs <= 0) return "Expired";
+
+  const remainingHours = Math.floor(remainingMs / 3_600_000);
+  const days = Math.floor(remainingHours / 24);
+  const hours = remainingHours % 24;
+
+  return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+}
+
+export default function DashboardClient({
+  user,
+  initialCaptures,
+}: {
+  user: DashboardUser;
+  initialCaptures: Capture[];
+}) {
   const [activeFilter, setActiveFilter] = useState<Filter>("all");
-  const [captures, setCaptures] = useState<Capture[]>([...initialCaptures]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [captures, setCaptures] = useState<Capture[]>(initialCaptures);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -82,15 +99,22 @@ export default function DashboardClient({ user }: { user: DashboardUser }) {
   const avatarInitial = displayName.trim().charAt(0).toUpperCase() || "?";
 
   const filteredCaptures = useMemo(() => {
-    if (activeFilter === "all") {
-      return captures;
-    }
+    const normalizedQuery = searchQuery.trim().toLowerCase();
 
-    return captures.filter((capture) => capture.type === activeFilter);
-  }, [activeFilter, captures]);
+    return captures.filter((capture) => {
+      const matchesFilter =
+        activeFilter === "all" || capture.type === activeFilter;
+      const matchesSearch =
+        normalizedQuery.length === 0 ||
+        capture.title.toLowerCase().includes(normalizedQuery) ||
+        capture.mimeType.toLowerCase().includes(normalizedQuery);
+
+      return matchesFilter && matchesSearch;
+    });
+  }, [activeFilter, captures, searchQuery]);
 
   async function copyCaptureLink(capture: Capture) {
-    const link = `https://fling.app/s/${capture.id}`;
+    const link = `${window.location.origin}/s/${capture.publicId}`;
 
     if (navigator.clipboard) {
       await navigator.clipboard.writeText(link);
@@ -172,7 +196,16 @@ export default function DashboardClient({ user }: { user: DashboardUser }) {
         <section className="library-toolbar reveal" aria-label="Library tools">
           <div className="search-box">
             <Search size={17} />
-            <span>Search captures</span>
+            <input
+              aria-label="Search captures"
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+                setOpenMenu(null);
+              }}
+              placeholder="Search captures"
+              type="search"
+              value={searchQuery}
+            />
           </div>
           <div className="filter-tabs" aria-label="Capture filters">
             {filters.map((filter) => (
@@ -194,6 +227,9 @@ export default function DashboardClient({ user }: { user: DashboardUser }) {
         <section className="capture-grid" aria-label="Uploaded captures">
           {filteredCaptures.map((capture) => {
             const Icon = capture.type === "video" ? Film : Image;
+            const duration = formatDuration(capture.durationMs);
+            const format = capture.mimeType.split("/").pop()?.toUpperCase();
+            const meta = [duration, format].filter(Boolean).join(" ");
 
             return (
               <article className="capture-card reveal" key={capture.id}>
@@ -205,12 +241,12 @@ export default function DashboardClient({ user }: { user: DashboardUser }) {
                   <div>
                     <h2>{capture.title}</h2>
                     <p>
-                      {capture.meta} {"·"} {capture.size}
+                      {meta} {"·"} {formatBytes(capture.byteSize)}
                     </p>
                   </div>
                   <span className="expiry-pill">
                     <TimerReset size={13} />
-                    {capture.expires}
+                    {formatExpiry(capture.expiresAt)}
                   </span>
                 </div>
                 <div className="capture-actions">
@@ -263,8 +299,14 @@ export default function DashboardClient({ user }: { user: DashboardUser }) {
           })}
           {filteredCaptures.length === 0 ? (
             <div className="empty-state">
-              <strong>No captures here</strong>
-              <span>Try another filter or upload a new file.</span>
+              <strong>
+                {captures.length === 0 ? "No captures yet" : "No matches"}
+              </strong>
+              <span>
+                {captures.length === 0
+                  ? "Upload a video or screenshot to get started."
+                  : "Try another search or filter."}
+              </span>
             </div>
           ) : null}
         </section>
