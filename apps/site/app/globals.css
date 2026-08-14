@@ -255,6 +255,33 @@ main {
     opacity 0.15s;
 }
 
+.header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-login {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+  transition: color 0.15s;
+}
+
+.header-login:hover {
+  color: var(--text);
+}
+
+.header-login:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent-hover);
+  outline-offset: 2px;
+}
+
 .header-action {
   min-height: 36px;
   padding: 0 14px;
@@ -2118,6 +2145,15 @@ main {
     margin-left: auto;
     width: 38px;
     padding: 0;
+  }
+
+  .header-buttons {
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .header-buttons .header-action {
+    margin-left: 0;
   }
 
   .account-chip {

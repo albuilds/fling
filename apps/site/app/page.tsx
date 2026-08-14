@@ -1,3 +1,4 @@
+import { auth } from "@/auth";
 import {
   ArrowRight,
   Check,
@@ -12,6 +13,7 @@ import {
   TimerReset,
   Zap,
 } from "lucide-react";
+import { redirect } from "next/navigation";
 
 const workflowItems = [
   {
@@ -182,7 +184,13 @@ function ProductScene() {
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth();
+
+  if (session?.user) {
+    redirect("/dashboard");
+  }
+
   return (
     <div className="app">
       <header className="site-header">
@@ -195,10 +203,15 @@ export default function Home() {
           <a href="#capture">Capture</a>
           <a href="#download">Download</a>
         </nav>
-        <a className="header-action" href="#download">
-          <Download size={16} />
-          <span>Get Fling</span>
-        </a>
+        <div className="header-buttons">
+          <a className="header-login" href="/login">
+            Log in
+          </a>
+          <a className="header-action" href="#download">
+            <Download size={16} />
+            <span>Get Fling</span>
+          </a>
+        </div>
       </header>
 
       <main id="top">

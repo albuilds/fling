@@ -1,4 +1,6 @@
-import { ArrowRight, MonitorUp, Zap } from "lucide-react";
+import { auth } from "@/auth";
+import { MonitorUp, Zap } from "lucide-react";
+import { redirect } from "next/navigation";
 import { GoogleButton } from "./google-button";
 
 function Logo() {
@@ -9,20 +11,19 @@ function Logo() {
   );
 }
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const session = await auth();
+
+  if (session?.user) {
+    redirect("/dashboard");
+  }
+
   return (
     <div className="app">
       <header className="site-header">
         <a className="brand" href="/" aria-label="Fling home">
           <Logo />
           <span>Fling</span>
-        </a>
-        <nav className="nav" aria-label="Primary navigation">
-          <a href="/dashboard">Dashboard</a>
-        </nav>
-        <a className="header-action" href="/dashboard">
-          <ArrowRight size={16} />
-          <span>Dashboard</span>
         </a>
       </header>
 
