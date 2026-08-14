@@ -9,5 +9,13 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  return <DashboardClient />;
+  return (
+    <DashboardClient
+      user={{
+        name: session.user.name,
+        email: session.user.email,
+        image: session.user.image,
+      }}
+    />
+  );
 }

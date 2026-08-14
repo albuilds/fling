@@ -51,6 +51,11 @@ const initialCaptures = [
 
 type Capture = (typeof initialCaptures)[number];
 type Filter = "all" | Capture["type"];
+type DashboardUser = {
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+};
 
 const filters: { label: string; value: Filter }[] = [
   { label: "All", value: "all" },
@@ -66,12 +71,15 @@ function Logo() {
   );
 }
 
-export default function DashboardClient() {
+export default function DashboardClient({ user }: { user: DashboardUser }) {
   const [activeFilter, setActiveFilter] = useState<Filter>("all");
   const [captures, setCaptures] = useState<Capture[]>([...initialCaptures]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const displayName = user.name || user.email || "Account";
+  const avatarInitial = displayName.trim().charAt(0).toUpperCase() || "?";
 
   const filteredCaptures = useMemo(() => {
     if (activeFilter === "all") {
@@ -116,13 +124,28 @@ export default function DashboardClient() {
             }}
             type="button"
           >
-            {isSigningOut ? "Signing out…" : "Log out"}
+            {isSigningOut ? "Signing out..." : "Log out"}
           </button>
         </nav>
         <a className="header-action" href="#">
           <Plus size={16} />
           <span>Upload</span>
         </a>
+        <div className="account-chip" title={user.email || displayName}>
+          <span className="account-avatar" aria-hidden="true">
+            {user.image && !avatarFailed ? (
+              <img
+                src={user.image}
+                alt=""
+                referrerPolicy="no-referrer"
+                onError={() => setAvatarFailed(true)}
+              />
+            ) : (
+              avatarInitial
+            )}
+          </span>
+          <span className="account-name">{displayName}</span>
+        </div>
       </header>
 
       <main className="dashboard-shell">
