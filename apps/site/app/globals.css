@@ -165,17 +165,36 @@ main {
   font-weight: 650;
 }
 
-.nav a {
+.nav a,
+.nav button {
+  border: 0;
   border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
   padding: 8px 10px;
   transition:
     background 0.15s,
-    color 0.15s;
+    color 0.15s,
+    opacity 0.15s;
 }
 
-.nav a:hover {
+.nav a:hover,
+.nav button:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
+}
+
+.nav a:focus-visible,
+.nav button:focus-visible {
+  outline: 2px solid var(--accent-hover);
+  outline-offset: 2px;
+}
+
+.nav button:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .header-action,

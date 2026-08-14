@@ -1,4 +1,5 @@
 import { ArrowRight, MonitorUp, Zap } from "lucide-react";
+import { GoogleButton } from "./google-button";
 
 function Logo() {
   return (
@@ -34,19 +35,13 @@ export default function LoginPage() {
             </p>
             <h1 id="login-title">Continue with Google</h1>
             <p className="auth-copy">
-              Use your Gmail account to open your capture library, manage
-              links, and keep every shared screen moment organized.
+              Use your Gmail account to open your capture library, manage links,
+              and keep every shared screen moment organized.
             </p>
           </div>
 
           <div className="oauth-card">
-            <button className="google-button" type="button">
-              <span className="google-mark" aria-hidden="true">
-                G
-              </span>
-              <span>Continue with Google</span>
-              <ArrowRight size={18} />
-            </button>
+            <GoogleButton />
           </div>
         </section>
 

@@ -12,48 +12,87 @@ enum CaptureType {
   VIDEO
 }
 
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  captures      Capture[]
+  deviceTokens  DeviceToken[]
+  accounts      Account[]
+  sessions      Session[]
+}
+
 model Account {
-  id           String        @id @default(cuid())
-  email        String        @unique
-  name         String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  captures     Capture[]
-  deviceTokens DeviceToken[]
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
 
 model DeviceToken {
-  id         String    @id @default(cuid())
-  accountId  String
-  tokenHash  String    @unique
-  name       String?
-  revokedAt  DateTime?
-  createdAt  DateTime  @default(now())
-  account    Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  captures   Capture[]
+  id        String    @id @default(cuid())
+  UserId    String
+  tokenHash String    @unique
+  name      String?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  User      User      @relation(fields: [UserId], references: [id], onDelete: Cascade)
+  captures  Capture[]
 
-  @@index([accountId])
+  @@index([UserId])
   @@index([revokedAt])
 }
 
 model Capture {
-  id            String        @id @default(cuid())
-  accountId     String
+  id            String       @id @default(cuid())
+  UserId        String
   deviceTokenId String?
-  publicId      String        @unique @default(cuid())
+  publicId      String       @unique @default(cuid())
   type          CaptureType
   title         String
   mimeType      String
-  storageKey    String        @unique
+  storageKey    String       @unique
   byteSize      BigInt
   durationMs    Int?
   expiresAt     DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  account       Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  deviceToken   DeviceToken?  @relation(fields: [deviceTokenId], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  User          User         @relation(fields: [UserId], references: [id], onDelete: Cascade)
+  deviceToken   DeviceToken? @relation(fields: [deviceTokenId], references: [id], onDelete: SetNull)
 
-  @@index([accountId, createdAt])
-  @@index([accountId, type])
+  @@index([UserId, createdAt])
+  @@index([UserId, type])
   @@index([expiresAt])
 }

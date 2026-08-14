@@ -1,3 +1,4 @@
+import { auth } from "@/auth";
 import {
   ArrowLeft,
   Copy,
@@ -9,6 +10,7 @@ import {
   Trash2,
   Zap,
 } from "lucide-react";
+import { redirect } from "next/navigation";
 
 function Logo() {
   return (
@@ -18,7 +20,13 @@ function Logo() {
   );
 }
 
-export default function CaptureDetailPage() {
+export default async function CaptureDetailPage() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/login");
+  }
+
   return (
     <div className="app">
       <header className="site-header">
