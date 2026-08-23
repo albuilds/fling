@@ -1166,6 +1166,46 @@ main {
   transform: scale(0.99);
 }
 
+.device-shell {
+  grid-template-columns: minmax(0, 680px);
+  justify-content: center;
+}
+
+.device-form,
+.device-success {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.device-form label,
+.device-success span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.device-form input {
+  min-height: 48px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: var(--bg);
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.device-error {
+  color: var(--coral);
+  font-size: 13px;
+}
+
 .google-mark {
   display: inline-grid;
   place-items: center;

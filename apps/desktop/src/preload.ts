@@ -13,6 +13,12 @@ contextBridge.exposeInMainWorld("flingSettings", {
   reset: () => ipcRenderer.invoke("settings:reset"),
 });
 
+contextBridge.exposeInMainWorld("flingAuth", {
+  get: () => ipcRenderer.invoke("auth:get"),
+  signIn: () => ipcRenderer.invoke("auth:sign-in"),
+  signOut: () => ipcRenderer.invoke("auth:sign-out"),
+});
+
 contextBridge.exposeInMainWorld("flingScreenshot", {
   closeOverlay: () => ipcRenderer.send("screenshot-overlay:close"),
   requestScreenshot: (rect: unknown, options: unknown) =>

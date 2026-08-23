@@ -2,8 +2,6 @@
 // Manages the BrowserWindow and system tray for the Fling desktop app.
 // The window hides instead of closing so the app stays alive in the tray.
 
-console.log("Start app!");
-
 import {
   app,
   BrowserWindow,
@@ -17,6 +15,10 @@ import {
   clipboard,
   session,
   nativeTheme,
+  shell,
+  dialog,
+  safeStorage,
+  Notification,
 } from "electron";
 import fs from "fs/promises";
 import path from "path";
@@ -118,6 +120,11 @@ class FlingApp {
   private screenshotOverlay: BrowserWindow | null = null;
   private videoOverlay: BrowserWindow | null = null;
   private settings: FlingSettings = this.cloneSettings(DEFAULT_SETTINGS);
+  private deviceToken: string | null = null;
+  private deviceUser: { name: string | null; email: string | null } | null =
+    null;
+  private readonly apiBaseUrl =
+    process.env.FLING_API_URL || "http://localhost:3000";
 
   private createWindow() {
     this.win = new BrowserWindow({
@@ -238,6 +245,14 @@ class FlingApp {
       Menu.buildFromTemplate([
         { label: "Open", click: () => this.showPage("index.html") },
         { label: "History", click: () => this.showPage("history.html") },
+        this.deviceToken
+          ? {
+              label: `Signed in as ${this.deviceUser?.name || this.deviceUser?.email || "Fling user"}`,
+              submenu: [
+                { label: "Sign out", click: () => void this.signOutDevice() },
+              ],
+            }
+          : { label: "Sign in", click: () => void this.signInDevice() },
         {
           label: "Capture Region",
           accelerator: this.settings.shortcuts.captureRegion ?? undefined,
@@ -268,9 +283,11 @@ class FlingApp {
     app.setAppUserModelId("fling");
     Menu.setApplicationMenu(null);
     await this.loadSettings();
+    await this.loadDeviceAuth();
     this.registerMediaPermissions();
     this.registerWindowControls();
     this.registerSettingsControls();
+    this.registerAuthControls();
     this.registerScreenshotControls();
     this.registerVideoControls();
     this.createWindow();
@@ -335,6 +352,167 @@ class FlingApp {
     });
   }
 
+  private registerAuthControls() {
+    ipcMain.handle("auth:get", () => ({
+      signedIn: Boolean(this.deviceToken),
+      user: this.deviceUser,
+    }));
+    ipcMain.handle("auth:sign-in", () => this.signInDevice());
+    ipcMain.handle("auth:sign-out", () => this.signOutDevice());
+  }
+
+  private getDeviceAuthPath() {
+    return path.join(app.getPath("userData"), "device-auth.bin");
+  }
+
+  private async loadDeviceAuth() {
+    try {
+      const encrypted = await fs.readFile(this.getDeviceAuthPath());
+      if (!safeStorage.isEncryptionAvailable()) return;
+      this.deviceToken = safeStorage.decryptString(encrypted);
+      const response = await fetch(`${this.apiBaseUrl}/api/device-auth/me`, {
+        headers: { authorization: `Bearer ${this.deviceToken}` },
+      });
+      if (!response.ok)
+        throw new Error("Stored device session is no longer valid");
+      const result = (await response.json()) as {
+        user: { name: string | null; email: string | null };
+      };
+      this.deviceUser = result.user;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT")
+        console.warn("Could not restore device sign-in", error);
+      this.deviceToken = null;
+      this.deviceUser = null;
+    }
+  }
+
+  private async saveDeviceAuth(token: string) {
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error(
+        "Secure credential storage is unavailable on this device",
+      );
+    }
+    const authPath = this.getDeviceAuthPath();
+    await fs.mkdir(path.dirname(authPath), { recursive: true });
+    await fs.writeFile(authPath, safeStorage.encryptString(token));
+  }
+
+  private async signInDevice() {
+    const startResponse = await fetch(
+      `${this.apiBaseUrl}/api/device-auth/start`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ deviceName: `${process.platform} desktop` }),
+      },
+    );
+    if (!startResponse.ok) throw new Error("Could not start device sign-in");
+    const authorization = (await startResponse.json()) as {
+      deviceCode: string;
+      userCode: string;
+      verificationUriComplete: string;
+      expiresIn: number;
+      interval: number;
+    };
+
+    clipboard.writeText(authorization.userCode);
+    await shell.openExternal(authorization.verificationUriComplete);
+    await dialog
+      .showMessageBox({
+        type: "info",
+        title: "Connect Fling",
+        message: `Enter code ${authorization.userCode} in your browser`,
+        detail:
+          "The code has been copied to your clipboard. Approve it using your Fling account.",
+        buttons: ["I approved it", "Cancel"],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then(async ({ response }) => {
+        if (response !== 0) return;
+        const deadline = Date.now() + authorization.expiresIn * 1000;
+        while (Date.now() < deadline) {
+          const pollResponse = await fetch(
+            `${this.apiBaseUrl}/api/device-auth/poll`,
+            {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ deviceCode: authorization.deviceCode }),
+            },
+          );
+          const result = (await pollResponse.json()) as {
+            accessToken?: string;
+            error?: string;
+            user?: { name: string | null; email: string | null };
+          };
+          if (pollResponse.ok && result.accessToken && result.user) {
+            await this.saveDeviceAuth(result.accessToken);
+            this.deviceToken = result.accessToken;
+            this.deviceUser = result.user;
+            this.updateTrayMenu();
+            return;
+          }
+          if (result.error !== "authorization_pending") break;
+          await new Promise((resolve) =>
+            setTimeout(resolve, authorization.interval * 1000),
+          );
+        }
+        throw new Error("Device sign-in expired or was not approved");
+      });
+
+    return { signedIn: Boolean(this.deviceToken), user: this.deviceUser };
+  }
+
+  private async signOutDevice() {
+    if (this.deviceToken) {
+      await fetch(`${this.apiBaseUrl}/api/device-auth/revoke`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${this.deviceToken}` },
+      }).catch(() => undefined);
+    }
+    this.deviceToken = null;
+    this.deviceUser = null;
+    await fs.unlink(this.getDeviceAuthPath()).catch(() => undefined);
+    this.updateTrayMenu();
+    return { signedIn: false, user: null };
+  }
+
+  private async uploadCapture(
+    data: Buffer,
+    title: string,
+    mimeType: string,
+    durationMs?: number,
+  ) {
+    if (!this.deviceToken) return null;
+    const response = await fetch(`${this.apiBaseUrl}/api/captures`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${this.deviceToken}`,
+        "content-type": mimeType,
+        "x-fling-title": encodeURIComponent(title),
+        ...(durationMs === undefined
+          ? {}
+          : { "x-fling-duration-ms": String(durationMs) }),
+      },
+      body: new Uint8Array(data),
+    });
+    if (!response.ok) throw new Error(`Upload failed (${response.status})`);
+    const capture = (await response.json()) as { shareUrl: string };
+    if (this.settings.afterCapture.copyUrl)
+      clipboard.writeText(capture.shareUrl);
+    if (this.settings.afterCapture.openBrowser)
+      await shell.openExternal(capture.shareUrl);
+    if (this.settings.afterCapture.showNotification) {
+      new Notification({
+        title: "Fling upload ready",
+        body: capture.shareUrl,
+      }).show();
+    }
+    return capture;
+  }
+
   private registerScreenshotControls() {
     ipcMain.on("screenshot-overlay:close", () =>
       this.screenshotOverlay?.close(),
@@ -353,12 +531,15 @@ class FlingApp {
 
   private registerVideoControls() {
     ipcMain.on("video-overlay:close", () => this.videoOverlay?.close());
-    ipcMain.handle("video-overlay:set-ignore-mouse-events", (_event, ignore) => {
-      if (!this.videoOverlay) return;
+    ipcMain.handle(
+      "video-overlay:set-ignore-mouse-events",
+      (_event, ignore) => {
+        if (!this.videoOverlay) return;
 
-      const shouldIgnoreMouse = ignore === true;
-      this.setVideoOverlayInputPassthrough(shouldIgnoreMouse);
-    });
+        const shouldIgnoreMouse = ignore === true;
+        this.setVideoOverlayInputPassthrough(shouldIgnoreMouse);
+      },
+    );
     ipcMain.handle(
       "video-overlay:set-recording-region",
       (_event, region: VideoRect | VideoRecordingRegion | null) => {
@@ -372,11 +553,16 @@ class FlingApp {
       const folder = path.join(app.getPath("documents"), "Fling Recordings");
       await fs.mkdir(folder, { recursive: true });
 
-      const savedPath = path.join(
-        folder,
-        `fling-recording-${this.timestampForFileName()}.webm`,
-      );
-      await fs.writeFile(savedPath, Buffer.from(new Uint8Array(data)));
+      const fileName = `fling-recording-${this.timestampForFileName()}.webm`;
+      const savedPath = path.join(folder, fileName);
+      const recording = Buffer.from(new Uint8Array(data));
+      await fs.writeFile(savedPath, recording);
+      await this.uploadCapture(
+        recording,
+        fileName,
+        "video/webm",
+        this.settings.recording.durationSeconds * 1000,
+      ).catch((error) => console.error("Could not upload recording", error));
       return savedPath;
     });
   }
@@ -409,6 +595,8 @@ class FlingApp {
         width: Math.round(captureArea.width * scaleFactor),
         height: Math.round(captureArea.height * scaleFactor),
       });
+      const png = image.toPNG();
+      const fileName = `fling-screenshot-${this.timestampForFileName()}.png`;
 
       let savedPath = "";
 
@@ -420,12 +608,13 @@ class FlingApp {
         const folder = path.join(app.getPath("documents"), "Fling Screenshots");
         await fs.mkdir(folder, { recursive: true });
 
-        savedPath = path.join(
-          folder,
-          `fling-screenshot-${this.timestampForFileName()}.png`,
-        );
-        await fs.writeFile(savedPath, image.toPNG());
+        savedPath = path.join(folder, fileName);
+        await fs.writeFile(savedPath, png);
       }
+
+      await this.uploadCapture(png, fileName, "image/png").catch((error) =>
+        console.error("Could not upload screenshot", error),
+      );
 
       if (overlay && !overlay.isDestroyed()) {
         overlay.webContents.send("screenshot-overlay:saved", savedPath);
@@ -566,7 +755,11 @@ class FlingApp {
           [5, 10, 15, 20, 30],
           DEFAULT_SETTINGS.recording.durationSeconds,
         ),
-        fps: this.oneOf(recording.fps, [15, 30, 60], DEFAULT_SETTINGS.recording.fps),
+        fps: this.oneOf(
+          recording.fps,
+          [15, 30, 60],
+          DEFAULT_SETTINGS.recording.fps,
+        ),
         quality: this.oneOf(
           recording.quality,
           ["low", "medium", "high"],

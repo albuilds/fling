@@ -13,17 +13,18 @@ enum CaptureType {
 }
 
 model User {
-  id            String        @id @default(cuid())
-  email         String        @unique
-  emailVerified DateTime?
-  name          String?
-  image         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  captures      Capture[]
-  deviceTokens  DeviceToken[]
-  accounts      Account[]
-  sessions      Session[]
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  emailVerified        DateTime?
+  name                 String?
+  image                String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  captures             Capture[]
+  deviceTokens         DeviceToken[]
+  deviceAuthorizations DeviceAuthorization[]
+  accounts             Account[]
+  sessions             Session[]
 }
 
 model Account {
@@ -73,6 +74,22 @@ model DeviceToken {
 
   @@index([UserId])
   @@index([revokedAt])
+}
+
+model DeviceAuthorization {
+  id             String    @id @default(cuid())
+  deviceCodeHash String    @unique
+  userCode       String    @unique
+  deviceName     String?
+  UserId         String?
+  expiresAt      DateTime
+  approvedAt     DateTime?
+  consumedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  User           User?     @relation(fields: [UserId], references: [id], onDelete: Cascade)
+
+  @@index([UserId])
+  @@index([expiresAt])
 }
 
 model Capture {

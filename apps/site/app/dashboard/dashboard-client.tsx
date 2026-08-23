@@ -8,7 +8,6 @@ import {
   Film,
   Image,
   MoreHorizontal,
-  Plus,
   Search,
   TimerReset,
   Zap,
@@ -151,10 +150,6 @@ export default function DashboardClient({
             {isSigningOut ? "Signing out..." : "Log out"}
           </button>
         </nav>
-        <a className="header-action" href="#">
-          <Plus size={16} />
-          <span>Upload</span>
-        </a>
         <div className="account-chip" title={user.email || displayName}>
           <span className="account-avatar" aria-hidden="true">
             {user.image && !avatarFailed ? (

@@ -11,11 +11,20 @@ function Logo() {
   );
 }
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string }>;
+}) {
+  const params = await searchParams;
+  const callbackUrl =
+    params.callbackUrl?.startsWith("/") && !params.callbackUrl.startsWith("//")
+      ? params.callbackUrl
+      : "/dashboard";
   const session = await auth();
 
   if (session?.user) {
-    redirect("/dashboard");
+    redirect(callbackUrl);
   }
 
   return (
@@ -42,7 +51,7 @@ export default async function LoginPage() {
           </div>
 
           <div className="oauth-card">
-            <GoogleButton />
+            <GoogleButton redirectTo={callbackUrl} />
           </div>
         </section>
 
