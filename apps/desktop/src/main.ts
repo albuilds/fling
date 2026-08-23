@@ -16,7 +16,6 @@ import {
   session,
   nativeTheme,
   shell,
-  dialog,
   safeStorage,
   Notification,
 } from "electron";
@@ -123,6 +122,10 @@ class FlingApp {
   private deviceToken: string | null = null;
   private deviceUser: { name: string | null; email: string | null } | null =
     null;
+  private signInPromise: Promise<{
+    signedIn: boolean;
+    user: { name: string | null; email: string | null } | null;
+  }> | null = null;
   private readonly apiBaseUrl =
     process.env.FLING_API_URL || "http://localhost:3000";
 
@@ -293,6 +296,7 @@ class FlingApp {
     this.createWindow();
     this.createTray();
     this.registerGlobalShortcuts();
+    if (!this.deviceToken) this.showPage("sign-in.html");
   }
 
   private registerMediaPermissions() {
@@ -400,6 +404,30 @@ class FlingApp {
   }
 
   private async signInDevice() {
+    if (this.deviceToken) {
+      return { signedIn: true, user: this.deviceUser };
+    }
+    if (this.signInPromise) {
+      this.win?.show();
+      this.win?.focus();
+      return this.signInPromise;
+    }
+
+    this.signInPromise = this.performSignInDevice()
+      .catch((error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : "Could not connect Fling";
+        this.win?.webContents.send("auth:error", { message });
+        throw error;
+      })
+      .finally(() => {
+        this.signInPromise = null;
+      });
+    return this.signInPromise;
+  }
+
+  private async performSignInDevice() {
+    await this.showSignInProgress("••••-••••");
     const startResponse = await fetch(
       `${this.apiBaseUrl}/api/device-auth/start`,
       {
@@ -418,51 +446,58 @@ class FlingApp {
     };
 
     clipboard.writeText(authorization.userCode);
+    await this.showSignInProgress(authorization.userCode);
     await shell.openExternal(authorization.verificationUriComplete);
-    await dialog
-      .showMessageBox({
-        type: "info",
-        title: "Connect Fling",
-        message: `Enter code ${authorization.userCode} in your browser`,
-        detail:
-          "The code has been copied to your clipboard. Approve it using your Fling account.",
-        buttons: ["I approved it", "Cancel"],
-        defaultId: 0,
-        cancelId: 1,
-      })
-      .then(async ({ response }) => {
-        if (response !== 0) return;
-        const deadline = Date.now() + authorization.expiresIn * 1000;
-        while (Date.now() < deadline) {
-          const pollResponse = await fetch(
-            `${this.apiBaseUrl}/api/device-auth/poll`,
-            {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ deviceCode: authorization.deviceCode }),
-            },
-          );
-          const result = (await pollResponse.json()) as {
-            accessToken?: string;
-            error?: string;
-            user?: { name: string | null; email: string | null };
-          };
-          if (pollResponse.ok && result.accessToken && result.user) {
-            await this.saveDeviceAuth(result.accessToken);
-            this.deviceToken = result.accessToken;
-            this.deviceUser = result.user;
-            this.updateTrayMenu();
-            return;
+    const deadline = Date.now() + authorization.expiresIn * 1000;
+    while (Date.now() < deadline) {
+      const pollResponse = await fetch(
+        `${this.apiBaseUrl}/api/device-auth/poll`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ deviceCode: authorization.deviceCode }),
+        },
+      );
+      const result = (await pollResponse.json()) as {
+        accessToken?: string;
+        error?: string;
+        user?: { name: string | null; email: string | null };
+      };
+      if (pollResponse.ok && result.accessToken && result.user) {
+        await this.saveDeviceAuth(result.accessToken);
+        this.deviceToken = result.accessToken;
+        this.deviceUser = result.user;
+        this.updateTrayMenu();
+        this.win?.webContents.send("auth:complete", { user: result.user });
+        const shouldOpenMainWindow = this.win?.isVisible() ?? false;
+        setTimeout(() => {
+          if (
+            shouldOpenMainWindow &&
+            this.win?.webContents.getURL().endsWith("/sign-in.html")
+          ) {
+            this.showPage("index.html");
           }
-          if (result.error !== "authorization_pending") break;
-          await new Promise((resolve) =>
-            setTimeout(resolve, authorization.interval * 1000),
-          );
-        }
-        throw new Error("Device sign-in expired or was not approved");
-      });
+        }, 1400);
+        return { signedIn: true, user: result.user };
+      }
+      if (result.error !== "authorization_pending") break;
+      await new Promise((resolve) =>
+        setTimeout(resolve, authorization.interval * 1000),
+      );
+    }
 
-    return { signedIn: Boolean(this.deviceToken), user: this.deviceUser };
+    throw new Error("Device sign-in expired or was not approved");
+  }
+
+  private async showSignInProgress(userCode: string) {
+    if (!this.win) return;
+    const signInFile = path.join(__dirname, "../src/sign-in.html");
+    if (!this.win.webContents.getURL().endsWith("/sign-in.html")) {
+      await this.win.loadFile(signInFile);
+    }
+    this.win.show();
+    this.win.focus();
+    this.win.webContents.send("auth:pending", { userCode });
   }
 
   private async signOutDevice() {

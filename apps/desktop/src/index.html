@@ -362,6 +362,40 @@
         color: var(--text);
       }
 
+      .account-state {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .account-state strong {
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--muted);
+        box-shadow: 0 0 0 4px rgba(107, 107, 128, 0.12);
+      }
+
+      .account-state.signed-in .status-dot {
+        background: var(--success);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 13%, transparent);
+      }
+
+      .account-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
       /* ── Save bar ── */
       footer {
         padding: 14px 28px;
@@ -574,6 +608,49 @@
     </header>
 
     <main>
+      <!-- Account -->
+      <div class="section">
+        <div class="section-header">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 21a8 8 0 0 1 16 0" />
+          </svg>
+          Account
+        </div>
+        <div class="row">
+          <div class="row-label">
+            <strong id="accountTitle">Not signed in</strong>
+            <span id="accountDescription">Connect Fling to upload and share captures</span>
+          </div>
+          <div class="account-actions">
+            <div class="account-state" id="accountState" aria-live="polite">
+              <span class="status-dot"></span>
+              <span id="accountStatus">Offline</span>
+            </div>
+            <button class="btn btn-primary" id="accountSignIn" type="button">
+              Sign in
+            </button>
+            <button
+              class="btn btn-ghost"
+              id="accountSignOut"
+              type="button"
+              hidden
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Appearance -->
       <div class="section">
         <div class="section-header">
@@ -1013,6 +1090,33 @@
           theme === "light" || theme === "dark" ? theme : "system";
       }
 
+      function renderAccount(auth) {
+        const identity = auth?.user?.name || auth?.user?.email;
+        const signedIn = Boolean(auth?.signedIn);
+        document.getElementById("accountTitle").textContent =
+          signedIn ? identity || "Fling account" : "Not signed in";
+        document.getElementById("accountDescription").textContent = signedIn
+          ? "Your desktop is connected and ready to share captures"
+          : "Connect Fling to upload and share captures";
+        document.getElementById("accountStatus").textContent =
+          signedIn ? "Connected" : "Offline";
+        document.getElementById("accountState").classList.toggle(
+          "signed-in",
+          signedIn,
+        );
+        document.getElementById("accountSignIn").hidden = signedIn;
+        document.getElementById("accountSignOut").hidden = !signedIn;
+      }
+
+      document.getElementById("accountSignIn").addEventListener("click", () => {
+        void window.flingAuth?.signIn?.();
+      });
+
+      document.getElementById("accountSignOut").addEventListener("click", async () => {
+        const auth = await window.flingAuth?.signOut?.();
+        renderAccount(auth);
+      });
+
       document.getElementById("theme").addEventListener("change", (event) => {
         applyTheme(event.target.value);
       });
@@ -1096,9 +1200,12 @@
       });
 
       window.addEventListener("DOMContentLoaded", async () => {
-        const savedSettings =
-          (await window.flingSettings?.get?.()) ?? clone(DEFAULT_SETTINGS);
-        applySettings(savedSettings);
+        const [savedSettings, auth] = await Promise.all([
+          window.flingSettings?.get?.(),
+          window.flingAuth?.get?.(),
+        ]);
+        applySettings(savedSettings ?? clone(DEFAULT_SETTINGS));
+        renderAccount(auth);
       });
     </script>
   </body>

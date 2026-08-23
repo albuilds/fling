@@ -17,6 +17,12 @@ contextBridge.exposeInMainWorld("flingAuth", {
   get: () => ipcRenderer.invoke("auth:get"),
   signIn: () => ipcRenderer.invoke("auth:sign-in"),
   signOut: () => ipcRenderer.invoke("auth:sign-out"),
+  onPending: (callback: (_event: IpcRendererEvent, data: unknown) => void) =>
+    ipcRenderer.on("auth:pending", callback),
+  onComplete: (callback: (_event: IpcRendererEvent, data: unknown) => void) =>
+    ipcRenderer.on("auth:complete", callback),
+  onError: (callback: (_event: IpcRendererEvent, data: unknown) => void) =>
+    ipcRenderer.on("auth:error", callback),
 });
 
 contextBridge.exposeInMainWorld("flingScreenshot", {

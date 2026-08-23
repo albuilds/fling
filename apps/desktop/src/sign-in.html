@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign in to Fling</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        color-scheme: dark;
+        --bg: #0d0d12;
+        --surface: #15151e;
+        --border: #222230;
+        --border-strong: #303044;
+        --accent: #7c5af8;
+        --accent-hover: #8d70ff;
+        --accent-soft: rgba(124, 90, 248, 0.16);
+        --accent-glow: rgba(124, 90, 248, 0.25);
+        --text: #e8e8f0;
+        --text-strong: #ffffff;
+        --muted: #8e8ea6;
+        --danger: #f85a5a;
+        --success: #5af8a0;
+        --font: -apple-system, "Segoe UI", sans-serif;
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) {
+          color-scheme: light;
+          --bg: #f7f7fb;
+          --surface: #ffffff;
+          --border: #ddddeb;
+          --border-strong: #c9c8dc;
+          --accent: #6f4df2;
+          --accent-hover: #5838d6;
+          --accent-soft: rgba(111, 77, 242, 0.11);
+          --accent-glow: rgba(111, 77, 242, 0.18);
+          --text: #292937;
+          --text-strong: #101018;
+          --muted: #626176;
+          --danger: #dc433d;
+          --success: #12824b;
+        }
+      }
+
+      :root[data-theme="light"] {
+        color-scheme: light;
+        --bg: #f7f7fb;
+        --surface: #ffffff;
+        --border: #ddddeb;
+        --border-strong: #c9c8dc;
+        --accent: #6f4df2;
+        --accent-hover: #5838d6;
+        --accent-soft: rgba(111, 77, 242, 0.11);
+        --accent-glow: rgba(111, 77, 242, 0.18);
+        --text: #292937;
+        --text-strong: #101018;
+        --muted: #626176;
+        --danger: #dc433d;
+        --success: #12824b;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        background: var(--bg);
+      }
+
+      body {
+        min-height: 100vh;
+        overflow: hidden;
+        color: var(--text);
+        font-family: var(--font);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 58px 0 0;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 50% 38%, var(--accent-glow), transparent 34%),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 68px 68px,
+          linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 68px 68px;
+        mask-image: linear-gradient(black, transparent 86%);
+      }
+
+      header {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 58px;
+        padding: 0 14px 0 28px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(21, 21, 30, 0.96), var(--bg));
+        -webkit-app-region: drag;
+      }
+
+      .brand-icon {
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border: 1px solid rgba(124, 90, 248, 0.5);
+        border-radius: 8px;
+        background: var(--accent-soft);
+        color: var(--accent-hover);
+        box-shadow: 0 0 18px var(--accent-glow);
+      }
+
+      h1 {
+        color: var(--text-strong);
+        font-size: 18px;
+        font-weight: 750;
+      }
+
+      .window-controls {
+        display: flex;
+        gap: 6px;
+        margin-left: auto;
+        -webkit-app-region: no-drag;
+      }
+
+      .window-control {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 28px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .window-control:hover {
+        border-color: var(--border);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .window-control.close:hover {
+        border-color: rgba(248, 90, 90, 0.35);
+        background: rgba(248, 90, 90, 0.12);
+        color: var(--danger);
+      }
+
+      main {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        place-items: center;
+        min-height: calc(100vh - 58px);
+        padding: 36px;
+      }
+
+      .auth-card {
+        width: min(460px, 100%);
+        padding: 34px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+          rgba(21, 21, 30, 0.92);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+        text-align: center;
+      }
+
+      .hero-icon {
+        display: grid;
+        place-items: center;
+        width: 58px;
+        height: 58px;
+        margin: 0 auto 22px;
+        border: 1px solid rgba(124, 90, 248, 0.5);
+        border-radius: 16px;
+        background: var(--accent-soft);
+        color: var(--accent-hover);
+        box-shadow: 0 0 28px var(--accent-glow);
+      }
+
+      .auth-card h2 {
+        color: var(--text-strong);
+        font-size: 28px;
+        line-height: 1.15;
+        letter-spacing: -0.6px;
+      }
+
+      .copy {
+        max-width: 350px;
+        margin: 12px auto 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        width: 100%;
+        min-height: 46px;
+        margin-top: 26px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        box-shadow: 0 0 18px var(--accent-glow);
+        cursor: pointer;
+        font: inherit;
+        font-weight: 750;
+        transition: background 0.15s, transform 0.12s, opacity 0.15s;
+      }
+
+      .primary:hover:not(:disabled) {
+        background: var(--accent-hover);
+      }
+
+      .primary:active:not(:disabled) {
+        transform: scale(0.99);
+      }
+
+      .primary:disabled {
+        cursor: wait;
+        opacity: 0.65;
+      }
+
+      .pending,
+      .success,
+      .error {
+        display: none;
+      }
+
+      .auth-card[data-state="pending"] .welcome,
+      .auth-card[data-state="success"] .welcome,
+      .auth-card[data-state="error"] .welcome {
+        display: none;
+      }
+
+      .auth-card[data-state="pending"] .pending,
+      .auth-card[data-state="success"] .success,
+      .auth-card[data-state="error"] .error {
+        display: block;
+      }
+
+      .code {
+        margin: 24px 0 18px;
+        padding: 14px 16px;
+        border: 1px solid var(--border-strong);
+        border-radius: 9px;
+        background: var(--bg);
+        color: var(--text-strong);
+        font-family: "SF Mono", "Cascadia Code", monospace;
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+      }
+
+      .waiting {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .spinner {
+        width: 17px;
+        height: 17px;
+        border: 2px solid var(--border-strong);
+        border-top-color: var(--accent-hover);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      .success .hero-icon {
+        color: var(--success);
+        border-color: color-mix(in srgb, var(--success) 45%, transparent);
+        background: color-mix(in srgb, var(--success) 12%, transparent);
+        box-shadow: 0 0 28px color-mix(in srgb, var(--success) 18%, transparent);
+      }
+
+      .error .hero-icon {
+        color: var(--danger);
+      }
+
+      .hint {
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) header {
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), var(--bg));
+        }
+        :root:not([data-theme="dark"]) .auth-card {
+          background: rgba(255, 255, 255, 0.94);
+          box-shadow: 0 24px 70px rgba(35, 33, 52, 0.16);
+        }
+      }
+
+      :root[data-theme="light"] header {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), var(--bg));
+      }
+      :root[data-theme="light"] .auth-card {
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: 0 24px 70px rgba(35, 33, 52, 0.16);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span class="brand-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        </svg>
+      </span>
+      <h1>Fling</h1>
+      <div class="window-controls" aria-label="Window controls">
+        <button class="window-control" data-window-action="minimize" aria-label="Minimize">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 18h12" /></svg>
+        </button>
+        <button class="window-control close" data-window-action="close" aria-label="Close">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 7l10 10M17 7 7 17" /></svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="auth-card" id="authCard" data-state="welcome" aria-live="polite">
+        <div class="welcome">
+          <span class="hero-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
+          </span>
+          <h2>Welcome to Fling</h2>
+          <p class="copy">Sign in once to upload captures, copy share links, and keep your desktop connected.</p>
+          <button class="primary" id="signInButton" type="button">
+            Sign in with your browser
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </button>
+          <p class="hint">The browser will open securely. You can close this window at any time.</p>
+        </div>
+
+        <div class="pending">
+          <span class="hero-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
+          </span>
+          <h2>Finish in your browser</h2>
+          <p class="copy">We opened Fling in your browser. This window will connect automatically when sign-in is complete.</p>
+          <div class="code" id="userCode">••••-••••</div>
+          <div class="waiting"><span class="spinner"></span><span>Waiting for sign-in…</span></div>
+          <p class="hint">Your code has also been copied to the clipboard.</p>
+        </div>
+
+        <div class="success">
+          <span class="hero-icon">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 4 4L19 6" /></svg>
+          </span>
+          <h2>You’re connected</h2>
+          <p class="copy" id="successCopy">Fling is ready. Opening the app…</p>
+        </div>
+
+        <div class="error">
+          <span class="hero-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16h.01" /></svg>
+          </span>
+          <h2>Couldn’t connect</h2>
+          <p class="copy" id="errorCopy">The sign-in request expired. Please try again.</p>
+          <button class="primary" id="retryButton" type="button">Try again</button>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const card = document.getElementById("authCard");
+      const signInButton = document.getElementById("signInButton");
+
+      document.querySelectorAll("[data-window-action]").forEach((button) => {
+        button.addEventListener("click", () => window.flingWindow?.[button.dataset.windowAction]?.());
+      });
+
+      async function startSignIn() {
+        card.dataset.state = "pending";
+        signInButton.disabled = true;
+        try {
+          await window.flingAuth?.signIn?.();
+        } catch (error) {
+          card.dataset.state = "error";
+          document.getElementById("errorCopy").textContent =
+            error?.message || "The sign-in request could not be completed.";
+        } finally {
+          signInButton.disabled = false;
+        }
+      }
+
+      signInButton.addEventListener("click", startSignIn);
+      document.getElementById("retryButton").addEventListener("click", startSignIn);
+
+      window.flingAuth?.onPending?.((_event, data) => {
+        document.getElementById("userCode").textContent = data.userCode;
+        card.dataset.state = "pending";
+      });
+      window.flingAuth?.onComplete?.((_event, data) => {
+        const identity = data.user?.name || data.user?.email;
+        if (identity) document.getElementById("successCopy").textContent = `Signed in as ${identity}. Opening Fling…`;
+        card.dataset.state = "success";
+      });
+      window.flingAuth?.onError?.((_event, data) => {
+        document.getElementById("errorCopy").textContent = data.message;
+        card.dataset.state = "error";
+      });
+
+      window.addEventListener("DOMContentLoaded", async () => {
+        const settings = await window.flingSettings?.get?.();
+        const theme = settings?.appearance?.theme;
+        document.documentElement.dataset.theme =
+          theme === "light" || theme === "dark" ? theme : "system";
+      });
+    </script>
+  </body>
+</html>
