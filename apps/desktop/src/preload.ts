@@ -25,6 +25,14 @@ contextBridge.exposeInMainWorld("flingAuth", {
     ipcRenderer.on("auth:error", callback),
 });
 
+contextBridge.exposeInMainWorld("flingHistory", {
+  list: () => ipcRenderer.invoke("history:list"),
+  copyLink: (url: string) => ipcRenderer.invoke("history:copy-link", url),
+  openLink: (url: string) => ipcRenderer.invoke("history:open-link", url),
+  onChanged: (callback: () => void) =>
+    ipcRenderer.on("history:changed", callback),
+});
+
 contextBridge.exposeInMainWorld("flingScreenshot", {
   closeOverlay: () => ipcRenderer.send("screenshot-overlay:close"),
   requestScreenshot: (rect: unknown, options: unknown) =>

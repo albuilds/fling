@@ -304,6 +304,7 @@ class FlingApp {
     this.registerWindowControls();
     this.registerSettingsControls();
     this.registerAuthControls();
+    this.registerHistoryControls();
     this.registerScreenshotControls();
     this.registerVideoControls();
     this.createWindow();
@@ -553,6 +554,7 @@ class FlingApp {
       );
     }
     const capture = (await response.json()) as { shareUrl: string };
+    this.win?.webContents.send("history:changed");
     if (this.settings.afterCapture.copyUrl)
       clipboard.writeText(capture.shareUrl);
     if (this.settings.afterCapture.openBrowser)
@@ -564,6 +566,57 @@ class FlingApp {
       }).show();
     }
     return capture;
+  }
+
+  private registerHistoryControls() {
+    ipcMain.handle("history:list", async () => {
+      if (!this.deviceToken) return { signedIn: false, captures: [] };
+
+      const response = await fetch(`${this.apiBaseUrl}/api/captures`, {
+        headers: { authorization: `Bearer ${this.deviceToken}` },
+      });
+      if (response.status === 401) {
+        return { signedIn: false, captures: [] };
+      }
+      if (!response.ok) {
+        const detail = (await response.text()).trim();
+        throw new Error(
+          `Could not load history (${response.status})${detail ? `: ${detail}` : ""}`,
+        );
+      }
+
+      const result = (await response.json()) as { captures?: unknown };
+      return {
+        signedIn: true,
+        captures: Array.isArray(result.captures) ? result.captures : [],
+      };
+    });
+
+    ipcMain.handle("history:copy-link", (_event, value: unknown) => {
+      const url = this.getExternalHttpUrl(value);
+      if (!url) throw new Error("Invalid share URL");
+      clipboard.writeText(url);
+      return true;
+    });
+
+    ipcMain.handle("history:open-link", async (_event, value: unknown) => {
+      const url = this.getExternalHttpUrl(value);
+      if (!url) throw new Error("Invalid share URL");
+      await shell.openExternal(url);
+      return true;
+    });
+  }
+
+  private getExternalHttpUrl(value: unknown) {
+    if (typeof value !== "string") return null;
+    try {
+      const url = new URL(value);
+      return url.protocol === "http:" || url.protocol === "https:"
+        ? url.toString()
+        : null;
+    } catch {
+      return null;
+    }
   }
 
   private registerScreenshotControls() {

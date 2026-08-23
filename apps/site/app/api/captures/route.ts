@@ -15,6 +15,42 @@ const ALLOWED_TYPES = new Set([
   "video/mp4",
 ]);
 
+export async function GET(request: Request) {
+  const device = await authenticateDevice(request);
+  if (!device) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const captures = await prisma.capture.findMany({
+    where: { UserId: device.UserId },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: {
+      publicId: true,
+      type: true,
+      title: true,
+      mimeType: true,
+      byteSize: true,
+      durationMs: true,
+      expiresAt: true,
+      createdAt: true,
+    },
+  });
+
+  const origin = process.env.APP_BASE_URL || new URL(request.url).origin;
+  return NextResponse.json(
+    {
+      captures: captures.map((capture) => ({
+        ...capture,
+        type: capture.type === "VIDEO" ? "video" : "image",
+        byteSize: Number(capture.byteSize),
+        createdAt: capture.createdAt.toISOString(),
+        expiresAt: capture.expiresAt?.toISOString() ?? null,
+        shareUrl: `${origin}/s/${capture.publicId}`,
+      })),
+    },
+    { headers: { "cache-control": "no-store" } },
+  );
+}
+
 export async function POST(request: Request) {
   const device = await authenticateDevice(request);
   if (!device) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
