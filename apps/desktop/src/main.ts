@@ -232,7 +232,14 @@ class FlingApp {
   }
 
   private createTray() {
-    const icon = nativeImage.createEmpty();
+    const iconPath = path.join(__dirname, "../src/assets/fling-logo.png");
+    const sourceIcon = nativeImage.createFromPath(iconPath);
+    const icon = sourceIcon.isEmpty()
+      ? nativeImage.createEmpty()
+      : sourceIcon.resize({
+          width: process.platform === "darwin" ? 18 : 20,
+          height: process.platform === "darwin" ? 18 : 20,
+        });
     this.tray = new Tray(icon);
     this.tray.setToolTip("Fling");
     this.updateTrayMenu();
@@ -284,6 +291,12 @@ class FlingApp {
 
   async start() {
     app.setAppUserModelId("fling");
+    if (process.platform === "darwin") {
+      const dockIcon = nativeImage.createFromPath(
+        path.join(__dirname, "../src/assets/fling-logo.png"),
+      );
+      if (!dockIcon.isEmpty()) app.dock?.setIcon(dockIcon);
+    }
     Menu.setApplicationMenu(null);
     await this.loadSettings();
     await this.loadDeviceAuth();
