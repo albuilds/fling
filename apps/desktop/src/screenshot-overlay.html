@@ -294,11 +294,8 @@
           <input id="saveOption" type="checkbox" checked />
           Save
         </label>
-        <label
-          class="capture-option disabled"
-          title="Server upload is coming later"
-        >
-          <input id="uploadOption" type="checkbox" disabled />
+        <label class="capture-option" id="uploadOptionLabel">
+          <input id="uploadOption" type="checkbox" />
           Upload
         </label>
       </div>
@@ -321,6 +318,7 @@
       const copyOption = document.getElementById("copyOption");
       const saveOption = document.getElementById("saveOption");
       const uploadOption = document.getElementById("uploadOption");
+      const uploadOptionLabel = document.getElementById("uploadOptionLabel");
       const screenshotSound = new Audio("assets/sounds/screenshot-click.mp3");
       screenshotSound.preload = "auto";
 
@@ -390,7 +388,10 @@
       }
 
       function updateScreenshotButtonState() {
-        screenshotButton.disabled = !copyOption.checked && !saveOption.checked;
+        screenshotButton.disabled =
+          !copyOption.checked &&
+          !saveOption.checked &&
+          !uploadOption.checked;
       }
 
       function isKeyboardControlTarget(target) {
@@ -411,7 +412,10 @@
       }
 
       async function loadScreenshotSettings() {
-        const settings = await window.flingSettings?.get?.();
+        const [settings, auth] = await Promise.all([
+          window.flingSettings?.get?.(),
+          window.flingAuth?.get?.(),
+        ]);
         applyTheme(settings?.appearance?.theme ?? "system");
         const screenshotSettings = {
           ...DEFAULT_SCREENSHOT_SETTINGS,
@@ -420,7 +424,13 @@
 
         copyOption.checked = screenshotSettings.copyToClipboard;
         saveOption.checked = screenshotSettings.saveLocally;
-        uploadOption.checked = false;
+        const canUpload = auth?.signedIn === true;
+        uploadOption.disabled = !canUpload;
+        uploadOptionLabel.classList.toggle("disabled", !canUpload);
+        uploadOptionLabel.title = canUpload
+          ? "Upload this screenshot and create a share link"
+          : "Sign in to upload screenshots";
+        uploadOption.checked = canUpload && screenshotSettings.uploadToServer;
         updateScreenshotButtonState();
       }
 
@@ -472,6 +482,7 @@
 
       copyOption.addEventListener("change", updateScreenshotButtonState);
       saveOption.addEventListener("change", updateScreenshotButtonState);
+      uploadOption.addEventListener("change", updateScreenshotButtonState);
 
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {

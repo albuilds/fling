@@ -533,7 +533,12 @@ class FlingApp {
       },
       body: new Uint8Array(data),
     });
-    if (!response.ok) throw new Error(`Upload failed (${response.status})`);
+    if (!response.ok) {
+      const detail = (await response.text()).trim();
+      throw new Error(
+        `Upload failed (${response.status})${detail ? `: ${detail}` : ""}`,
+      );
+    }
     const capture = (await response.json()) as { shareUrl: string };
     if (this.settings.afterCapture.copyUrl)
       clipboard.writeText(capture.shareUrl);
@@ -647,9 +652,9 @@ class FlingApp {
         await fs.writeFile(savedPath, png);
       }
 
-      await this.uploadCapture(png, fileName, "image/png").catch((error) =>
-        console.error("Could not upload screenshot", error),
-      );
+      if (options.uploadToServer) {
+        await this.uploadCapture(png, fileName, "image/png");
+      }
 
       if (overlay && !overlay.isDestroyed()) {
         overlay.webContents.send("screenshot-overlay:saved", savedPath);
@@ -778,7 +783,10 @@ class FlingApp {
           screenshot.saveLocally,
           DEFAULT_SETTINGS.screenshot.saveLocally,
         ),
-        uploadToServer: false,
+        uploadToServer: this.booleanOrDefault(
+          screenshot.uploadToServer,
+          DEFAULT_SETTINGS.screenshot.uploadToServer,
+        ),
       },
       recording: {
         saveLocally: this.booleanOrDefault(
