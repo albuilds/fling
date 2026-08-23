@@ -10,5 +10,8 @@ export async function POST(request: Request) {
     where: { id: device.id },
     data: { revokedAt: new Date() },
   });
-  return NextResponse.json({ revoked: true });
+  return NextResponse.json(
+    { revoked: true },
+    { headers: { "cache-control": "no-store" } },
+  );
 }

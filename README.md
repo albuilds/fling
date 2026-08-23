@@ -49,7 +49,7 @@ fling/
 
 ### Prerequisites
 
-- Node.js 22+
+- Node.js 22.12+ (or Node.js 20.19+ / 24+)
 - npm
 - Docker Desktop
 - Google OAuth credentials

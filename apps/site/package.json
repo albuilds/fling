@@ -3,34 +3,40 @@
   "version": "1.0.0",
   "description": "Fling Next.js app",
   "private": true,
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
+  },
   "scripts": {
     "dev": "next dev",
+    "generate": "prisma generate",
+    "prebuild": "npm run generate",
     "build": "next build",
     "start": "next start",
+    "pretypecheck": "npm run generate",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
     "@aws-sdk/client-s3": "^3.1085.0",
-    "@prisma/adapter-pg": "^7.8.0",
-    "@prisma/client": "^7.8.0",
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
     "dotenv": "^17.4.2",
     "lucide-react": "^0.468.0",
-    "next": "^15.5.21",
+    "next": "^16.3.2",
     "next-auth": "^5.0.0-beta.32",
-    "pg": "^8.22.0",
+    "pg": "^8.23.0",
+    "prisma": "^7.9.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "overrides": {
-    "postcss": "8.5.23"
+    "deepmerge-ts": "8.0.2"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",
-    "@types/pg": "^8.20.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "prisma": "^7.8.0",
     "typescript": "^5.6.3"
   }
 }

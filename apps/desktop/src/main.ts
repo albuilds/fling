@@ -21,6 +21,7 @@ import {
 } from "electron";
 import fs from "fs/promises";
 import path from "path";
+import { pathToFileURL } from "url";
 
 type ScreenshotRect = {
   left: number;
@@ -113,6 +114,34 @@ const DEFAULT_SETTINGS: FlingSettings = {
   },
 };
 
+const APP_PAGE_NAMES = [
+  "history.html",
+  "index.html",
+  "screenshot-overlay.html",
+  "sign-in.html",
+  "video-overlay.html",
+] as const;
+
+function normalizeApiBaseUrl(value: string) {
+  const url = new URL(value);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("FLING_API_URL must use http or https");
+  }
+  if (url.username || url.password) {
+    throw new Error("FLING_API_URL must not include credentials");
+  }
+
+  const isLoopback = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  if (url.protocol === "http:" && !isLoopback) {
+    throw new Error("FLING_API_URL must use https except on localhost");
+  }
+
+  url.search = "";
+  url.hash = "";
+  url.pathname = url.pathname.replace(/\/+$/, "");
+  return url.toString().replace(/\/$/, "");
+}
+
 class FlingApp {
   private tray: Tray | null = null;
   private win: BrowserWindow | null = null;
@@ -126,8 +155,14 @@ class FlingApp {
     signedIn: boolean;
     user: { name: string | null; email: string | null } | null;
   }> | null = null;
-  private readonly apiBaseUrl =
-    process.env.FLING_API_URL || "http://localhost:3000";
+  private readonly apiBaseUrl = normalizeApiBaseUrl(
+    process.env.FLING_API_URL || "http://localhost:3000",
+  );
+  private readonly trustedPageUrls = new Set(
+    APP_PAGE_NAMES.map((fileName) =>
+      pathToFileURL(path.join(__dirname, `../src/${fileName}`)).toString(),
+    ),
+  );
 
   private createWindow() {
     this.win = new BrowserWindow({
@@ -137,9 +172,14 @@ class FlingApp {
       skipTaskbar: true,
       frame: false,
       webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
         preload: path.join(__dirname, "preload.js"),
+        sandbox: true,
+        webSecurity: true,
       },
     });
+    this.hardenWindow(this.win);
     this.win.loadFile(path.join(__dirname, "../src/index.html"));
     this.win.on("close", (e) => {
       e.preventDefault();
@@ -176,9 +216,14 @@ class FlingApp {
       skipTaskbar: true,
       alwaysOnTop: true,
       webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
         preload: path.join(__dirname, "preload.js"),
+        sandbox: true,
+        webSecurity: true,
       },
     });
+    this.hardenWindow(this.screenshotOverlay);
 
     this.screenshotOverlay.setAlwaysOnTop(true, "screen-saver");
     this.screenshotOverlay.setFullScreen(shouldUseFullscreenOverlay);
@@ -216,9 +261,14 @@ class FlingApp {
       skipTaskbar: true,
       alwaysOnTop: true,
       webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
         preload: path.join(__dirname, "preload.js"),
+        sandbox: true,
+        webSecurity: true,
       },
     });
+    this.hardenWindow(this.videoOverlay);
 
     this.videoOverlay.setAlwaysOnTop(true, "screen-saver");
     this.videoOverlay.setFullScreen(shouldUseFullscreenOverlay);
@@ -332,9 +382,29 @@ class FlingApp {
     );
   }
 
+  private hardenWindow(window: BrowserWindow) {
+    window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    window.webContents.on("will-navigate", (event, url) => {
+      if (!this.isTrustedAppUrl(url)) event.preventDefault();
+    });
+    window.webContents.on("will-redirect", (event, url) => {
+      if (!this.isTrustedAppUrl(url)) event.preventDefault();
+    });
+  }
+
+  private isTrustedAppUrl(value: string) {
+    try {
+      const url = new URL(value);
+      url.search = "";
+      url.hash = "";
+      return this.trustedPageUrls.has(url.toString());
+    } catch {
+      return false;
+    }
+  }
+
   private isTrustedAppWebContents(webContents: Electron.WebContents | null) {
-    const url = webContents?.getURL() ?? "";
-    return url.startsWith("file://");
+    return this.isTrustedAppUrl(webContents?.getURL() ?? "");
   }
 
   private registerWindowControls() {
@@ -413,8 +483,9 @@ class FlingApp {
       );
     }
     const authPath = this.getDeviceAuthPath();
-    await fs.mkdir(path.dirname(authPath), { recursive: true });
-    await fs.writeFile(authPath, safeStorage.encryptString(token));
+    await fs.mkdir(path.dirname(authPath), { recursive: true, mode: 0o700 });
+    await fs.writeFile(authPath, safeStorage.encryptString(token), { mode: 0o600 });
+    await fs.chmod(authPath, 0o600).catch(() => undefined);
   }
 
   private async signInDevice() {
@@ -459,9 +530,30 @@ class FlingApp {
       interval: number;
     };
 
+    const verificationUrl = this.getTrustedServerHttpUrl(
+      authorization.verificationUriComplete,
+    );
+    if (
+      !verificationUrl ||
+      typeof authorization.deviceCode !== "string" ||
+      !/^[A-Za-z0-9_-]{43}$/.test(authorization.deviceCode) ||
+      typeof authorization.userCode !== "string" ||
+      !/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/.test(
+        authorization.userCode,
+      ) ||
+      !Number.isFinite(authorization.expiresIn) ||
+      authorization.expiresIn <= 0 ||
+      authorization.expiresIn > 900 ||
+      !Number.isFinite(authorization.interval) ||
+      authorization.interval < 1 ||
+      authorization.interval > 30
+    ) {
+      throw new Error("The sign-in server returned an invalid response");
+    }
+
     clipboard.writeText(authorization.userCode);
     await this.showSignInProgress(authorization.userCode);
-    await shell.openExternal(authorization.verificationUriComplete);
+    await shell.openExternal(verificationUrl);
     const deadline = Date.now() + authorization.expiresIn * 1000;
     while (Date.now() < deadline) {
       const pollResponse = await fetch(
@@ -553,7 +645,10 @@ class FlingApp {
         `Upload failed (${response.status})${detail ? `: ${detail}` : ""}`,
       );
     }
-    const capture = (await response.json()) as { shareUrl: string };
+    const result = (await response.json()) as { shareUrl?: unknown };
+    const shareUrl = this.getTrustedServerHttpUrl(result.shareUrl);
+    if (!shareUrl) throw new Error("The upload server returned an invalid share URL");
+    const capture = { shareUrl };
     this.win?.webContents.send("history:changed");
     if (this.settings.afterCapture.copyUrl)
       clipboard.writeText(capture.shareUrl);
@@ -593,14 +688,14 @@ class FlingApp {
     });
 
     ipcMain.handle("history:copy-link", (_event, value: unknown) => {
-      const url = this.getExternalHttpUrl(value);
+      const url = this.getTrustedServerHttpUrl(value);
       if (!url) throw new Error("Invalid share URL");
       clipboard.writeText(url);
       return true;
     });
 
     ipcMain.handle("history:open-link", async (_event, value: unknown) => {
-      const url = this.getExternalHttpUrl(value);
+      const url = this.getTrustedServerHttpUrl(value);
       if (!url) throw new Error("Invalid share URL");
       await shell.openExternal(url);
       return true;
@@ -611,12 +706,25 @@ class FlingApp {
     if (typeof value !== "string") return null;
     try {
       const url = new URL(value);
-      return url.protocol === "http:" || url.protocol === "https:"
-        ? url.toString()
-        : null;
+      if (
+        (url.protocol !== "http:" && url.protocol !== "https:") ||
+        url.username ||
+        url.password
+      ) {
+        return null;
+      }
+      return url.toString();
     } catch {
       return null;
     }
+  }
+
+  private getTrustedServerHttpUrl(value: unknown) {
+    const externalUrl = this.getExternalHttpUrl(value);
+    if (!externalUrl) return null;
+    return new URL(externalUrl).origin === new URL(this.apiBaseUrl).origin
+      ? externalUrl
+      : null;
   }
 
   private registerScreenshotControls() {
@@ -1061,7 +1169,7 @@ class FlingApp {
     if (!this.videoOverlay) return;
 
     if (enabled) {
-      this.videoOverlay.setIgnoreMouseEvents(false);
+      this.videoOverlay.setIgnoreMouseEvents(true, { forward: true });
       this.videoOverlay.setFocusable(false);
       this.videoOverlay.blur();
       return;
@@ -1104,11 +1212,13 @@ class FlingApp {
 }
 
 // Waits for Electron to finish initializing and creates the Fling applicaiton.
-app.whenReady().then(() => {
-  new FlingApp().start().catch((error) => {
+app.whenReady().then(async () => {
+  try {
+    await new FlingApp().start();
+  } catch (error) {
     console.error("Could not start Fling:", error);
     app.exit(1);
-  });
+  }
 });
 
 // Removes shortcuts before full shutdown.

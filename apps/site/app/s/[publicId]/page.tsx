@@ -1,3 +1,4 @@
+import { getAppOrigin } from "@/lib/app-url";
 import { prisma } from "@/lib/prisma";
 import { Download, Film, ImageIcon, TimerReset, Zap } from "lucide-react";
 import type { Metadata } from "next";
@@ -38,6 +39,8 @@ const getCapture = cache(async (publicId: string) =>
 );
 
 async function getRequestOrigin() {
+  if (process.env.APP_BASE_URL) return getAppOrigin();
+
   const requestHeaders = await headers();
   const forwardedHost = requestHeaders.get("x-forwarded-host")?.split(",")[0].trim();
   const host = forwardedHost || requestHeaders.get("host");
@@ -49,10 +52,10 @@ async function getRequestOrigin() {
       .trim();
     const protocol =
       forwardedProtocol || (host.startsWith("localhost") ? "http" : "https");
-    return `${protocol}://${host}`;
+    return getAppOrigin(`${protocol}://${host}`);
   }
 
-  return new URL(process.env.APP_BASE_URL || "http://localhost:3000").origin;
+  return getAppOrigin("http://localhost:3000");
 }
 
 export async function generateMetadata({ params }: SharePageProps): Promise<Metadata> {

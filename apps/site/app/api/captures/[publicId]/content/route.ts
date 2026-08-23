@@ -18,6 +18,12 @@ function isUnavailable(capture: Awaited<ReturnType<typeof getCapture>>) {
   return !capture || Boolean(capture.expiresAt && capture.expiresAt <= new Date());
 }
 
+function encodeContentDispositionValue(value: string) {
+  return encodeURIComponent(value).replace(/[!'()*]/g, (character) =>
+    `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+}
+
 function createMediaHeaders({
   title,
   mimeType,
@@ -32,8 +38,10 @@ function createMediaHeaders({
   const headers = new Headers({
     "accept-ranges": "bytes",
     "cache-control": "public, max-age=300",
-    "content-disposition": `inline; filename*=UTF-8''${encodeURIComponent(title)}`,
+    "content-disposition": `inline; filename*=UTF-8''${encodeContentDispositionValue(title)}`,
+    "content-security-policy": "default-src 'none'; sandbox",
     "content-type": mimeType,
+    "x-content-type-options": "nosniff",
   });
   if (contentLength !== undefined) {
     headers.set("content-length", String(contentLength));
@@ -58,7 +66,7 @@ export async function HEAD(_request: Request, { params }: RouteContext) {
   );
   const headers = createMediaHeaders({
     title: capture.title,
-    mimeType: object.ContentType ?? capture.mimeType,
+    mimeType: capture.mimeType,
     contentLength: object.ContentLength,
     etag: object.ETag,
   });
@@ -88,7 +96,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 
   const headers = createMediaHeaders({
     title: capture.title,
-    mimeType: object.ContentType ?? capture.mimeType,
+    mimeType: capture.mimeType,
     contentLength: object.ContentLength,
     etag: object.ETag,
   });

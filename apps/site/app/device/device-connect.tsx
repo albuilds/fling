@@ -1,31 +1,26 @@
 "use client";
 
 import { Check, LoaderCircle } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 export default function DeviceConnect({ initialCode }: { initialCode: string }) {
   const [code, setCode] = useState(initialCode);
-  const hasCompleteCode = initialCode.trim().length >= 8;
-  const [status, setStatus] = useState<"idle" | "loading" | "approved" | "error">(
-    hasCompleteCode ? "loading" : "idle",
+  const [status, setStatus] = useState<"idle" | "loading" | "approved" | "error">("idle");
+  const normalizedCode = code.trim().toUpperCase();
+  const hasCompleteCode = /^[A-HJ-NP-Z2-9]{4}-?[A-HJ-NP-Z2-9]{4}$/.test(
+    normalizedCode,
   );
-  const autoConnectStarted = useRef(false);
 
   async function approve(requestedCode = code) {
+    if (status === "loading") return;
     setStatus("loading");
     const response = await fetch("/api/device-auth/approve", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ userCode: requestedCode }),
+      body: JSON.stringify({ userCode: requestedCode.trim().toUpperCase() }),
     });
     setStatus(response.ok ? "approved" : "error");
   }
-
-  useEffect(() => {
-    if (!hasCompleteCode || autoConnectStarted.current) return;
-    autoConnectStarted.current = true;
-    void approve(initialCode);
-  }, [hasCompleteCode, initialCode]);
 
   if (status === "approved") {
     return (
@@ -39,46 +34,34 @@ export default function DeviceConnect({ initialCode }: { initialCode: string }) 
     );
   }
 
-  if (hasCompleteCode) {
-    return (
-      <div className="device-waiting" role={status === "error" ? "alert" : "status"}>
-        <span className="device-status-icon">
-          <LoaderCircle className={status === "loading" ? "device-spinner" : ""} size={22} />
-        </span>
-        <span className="device-code-label">Desktop code</span>
-        <strong className="device-code">{initialCode}</strong>
-        {status === "loading" ? (
-          <span>Securely connecting your desktop…</span>
-        ) : (
-          <>
-            <span className="device-error">That code is invalid or has expired.</span>
-            <button className="button primary" onClick={() => void approve(initialCode)} type="button">
-              Try again
-            </button>
-          </>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="device-form">
-      <label htmlFor="device-code">Code shown in the Fling app</label>
+      <label htmlFor="device-code">Confirm the code shown in the Fling app</label>
       <input
         id="device-code"
         autoComplete="one-time-code"
         maxLength={9}
-        onChange={(event) => setCode(event.target.value.toUpperCase())}
+        onChange={(event) => {
+          setCode(event.target.value.toUpperCase());
+          if (status === "error") setStatus("idle");
+        }}
         placeholder="ABCD-EFGH"
         value={code}
       />
       <button
         className="button primary"
-        disabled={status === "loading" || code.trim().length < 8}
+        disabled={status === "loading" || !hasCompleteCode}
         onClick={() => void approve(code)}
         type="button"
       >
-        {status === "loading" ? "Connecting..." : "Connect device"}
+        {status === "loading" ? (
+          <>
+            <LoaderCircle className="device-spinner" size={18} />
+            Connecting...
+          </>
+        ) : (
+          "Connect device"
+        )}
       </button>
       {status === "error" ? (
         <p className="device-error" role="alert">That code is invalid or has expired.</p>

@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'" />
     <title>Sign in to Fling</title>
     <style>
       *,
@@ -411,16 +412,16 @@
       signInButton.addEventListener("click", startSignIn);
       document.getElementById("retryButton").addEventListener("click", startSignIn);
 
-      window.flingAuth?.onPending?.((_event, data) => {
+      window.flingAuth?.onPending?.((data) => {
         document.getElementById("userCode").textContent = data.userCode;
         card.dataset.state = "pending";
       });
-      window.flingAuth?.onComplete?.((_event, data) => {
+      window.flingAuth?.onComplete?.((data) => {
         const identity = data.user?.name || data.user?.email;
         if (identity) document.getElementById("successCopy").textContent = `Signed in as ${identity}. Opening Fling…`;
         card.dataset.state = "success";
       });
-      window.flingAuth?.onError?.((_event, data) => {
+      window.flingAuth?.onError?.((data) => {
         document.getElementById("errorCopy").textContent = data.message;
         card.dataset.state = "error";
       });

@@ -11,16 +11,28 @@ function Logo() {
   );
 }
 
+function getSafeCallbackUrl(value: string | undefined) {
+  if (!value?.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
+    return "/dashboard";
+  }
+
+  try {
+    const base = new URL("https://fling.invalid");
+    const callback = new URL(value, base);
+    if (callback.origin !== base.origin) return "/dashboard";
+    return `${callback.pathname}${callback.search}${callback.hash}`;
+  } catch {
+    return "/dashboard";
+  }
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ callbackUrl?: string }>;
 }) {
   const params = await searchParams;
-  const callbackUrl =
-    params.callbackUrl?.startsWith("/") && !params.callbackUrl.startsWith("//")
-      ? params.callbackUrl
-      : "/dashboard";
+  const callbackUrl = getSafeCallbackUrl(params.callbackUrl);
   const session = await auth();
 
   if (session?.user) {

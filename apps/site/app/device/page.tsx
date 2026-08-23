@@ -42,7 +42,8 @@ export default async function DevicePage({
             </p>
             <h1 id="device-title">Connect your Fling app</h1>
             <p className="auth-copy">
-              Keep this window open for a moment while we securely connect your desktop.
+              Confirm that the code below matches your desktop before connecting it to
+              your account.
             </p>
           </div>
           <DeviceConnect initialCode={code.toUpperCase()} />

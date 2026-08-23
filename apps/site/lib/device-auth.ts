@@ -18,9 +18,7 @@ export function createUserCode() {
 
 export async function authenticateDevice(request: Request) {
   const authorization = request.headers.get("authorization");
-  if (!authorization?.startsWith("Bearer ")) return null;
-
-  const token = authorization.slice(7).trim();
+  const token = authorization?.match(/^Bearer ([A-Za-z0-9_-]{32,256})$/i)?.[1];
   if (!token) return null;
 
   return prisma.deviceToken.findFirst({

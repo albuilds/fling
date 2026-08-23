@@ -10,5 +10,10 @@ export async function GET(request: Request) {
     where: { id: device.UserId },
     select: { id: true, name: true, email: true, image: true },
   });
-  return NextResponse.json({ user, device: { id: device.id, name: device.name } });
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  return NextResponse.json(
+    { user, device: { id: device.id, name: device.name } },
+    { headers: { "cache-control": "no-store" } },
+  );
 }

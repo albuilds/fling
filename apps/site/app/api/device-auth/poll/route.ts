@@ -1,10 +1,17 @@
 import { createSecret, hashSecret } from "@/lib/device-auth";
 import { prisma } from "@/lib/prisma";
+import { readSmallJsonObject } from "@/lib/request-body";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as { deviceCode?: unknown };
-  if (typeof body.deviceCode !== "string" || !body.deviceCode) {
+  const body = await readSmallJsonObject(request);
+  if (!body) {
+    return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+  }
+  if (
+    typeof body.deviceCode !== "string" ||
+    !/^[A-Za-z0-9_-]{43}$/.test(body.deviceCode)
+  ) {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   }
 
@@ -23,24 +30,42 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "authorization_pending" }, { status: 202 });
   }
 
+  const userId = authorization.UserId;
   const accessToken = createSecret(48);
-  await prisma.$transaction([
-    prisma.deviceToken.create({
+  let issued = false;
+  await prisma.$transaction(async (transaction) => {
+    const consumption = await transaction.deviceAuthorization.updateMany({
+      where: {
+        id: authorization.id,
+        UserId: userId,
+        approvedAt: { not: null },
+        consumedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      data: { consumedAt: new Date() },
+    });
+    if (consumption.count !== 1) return;
+
+    await transaction.deviceToken.create({
       data: {
-        UserId: authorization.UserId,
+        UserId: userId,
         tokenHash: hashSecret(accessToken),
         name: authorization.deviceName || "Fling desktop",
       },
-    }),
-    prisma.deviceAuthorization.update({
-      where: { id: authorization.id },
-      data: { consumedAt: new Date() },
-    }),
-  ]);
-
-  return NextResponse.json({
-    accessToken,
-    tokenType: "Bearer",
-    user: authorization.User,
+    });
+    issued = true;
   });
+
+  if (!issued) {
+    return NextResponse.json({ error: "invalid_grant" }, { status: 400 });
+  }
+
+  return NextResponse.json(
+    {
+      accessToken,
+      tokenType: "Bearer",
+      user: authorization.User,
+    },
+    { headers: { "cache-control": "no-store" } },
+  );
 }

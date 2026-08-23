@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'" />
     <title>Fling Screenshot</title>
     <style>
       *,
@@ -501,7 +502,7 @@
         status.classList.add("visible");
       });
 
-      window.flingScreenshot?.onSaved?.((_event, savedPath) => {
+      window.flingScreenshot?.onSaved?.((savedPath) => {
         status.textContent = `Saved to ${savedPath}`;
         status.classList.add("visible");
       });
