@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { Download, Film, ImageIcon, TimerReset, Zap } from "lucide-react";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 
 type SharePageProps = { params: Promise<{ publicId: string }> };
 
@@ -19,8 +21,8 @@ function formatExpiry(expiresAt: Date | null) {
   return hours < 24 ? `${hours}h` : `${Math.ceil(hours / 24)}d`;
 }
 
-async function getCapture(publicId: string) {
-  return prisma.capture.findUnique({
+const getCapture = cache(async (publicId: string) =>
+  prisma.capture.findUnique({
     where: { publicId },
     select: {
       publicId: true,
@@ -28,18 +30,123 @@ async function getCapture(publicId: string) {
       title: true,
       mimeType: true,
       byteSize: true,
+      durationMs: true,
       expiresAt: true,
       createdAt: true,
     },
-  });
+  }),
+);
+
+async function getRequestOrigin() {
+  const requestHeaders = await headers();
+  const forwardedHost = requestHeaders.get("x-forwarded-host")?.split(",")[0].trim();
+  const host = forwardedHost || requestHeaders.get("host");
+
+  if (host) {
+    const forwardedProtocol = requestHeaders
+      .get("x-forwarded-proto")
+      ?.split(",")[0]
+      .trim();
+    const protocol =
+      forwardedProtocol || (host.startsWith("localhost") ? "http" : "https");
+    return `${protocol}://${host}`;
+  }
+
+  return new URL(process.env.APP_BASE_URL || "http://localhost:3000").origin;
 }
 
 export async function generateMetadata({ params }: SharePageProps): Promise<Metadata> {
   const { publicId } = await params;
   const capture = await getCapture(publicId);
-  return capture
-    ? { title: `${capture.title} · Fling` }
-    : { title: "Capture not found · Fling" };
+  const isExpired = Boolean(
+    capture?.expiresAt && capture.expiresAt.getTime() <= Date.now(),
+  );
+
+  if (!capture || isExpired) {
+    return {
+      title: "Capture not found · Fling",
+      description: "This Fling capture is unavailable or has expired.",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const origin = await getRequestOrigin();
+  const shareUrl = new URL(`/s/${encodeURIComponent(publicId)}`, origin);
+  const mediaUrl = new URL(
+    `/api/captures/${encodeURIComponent(publicId)}/content`,
+    origin,
+  );
+  const isVideo = capture.type === "VIDEO";
+  const title = `${capture.title} · Fling`;
+  const description = `${isVideo ? "Video" : "Screenshot"} shared with Fling · ${formatBytes(capture.byteSize)} · Expires in ${formatExpiry(capture.expiresAt)}`;
+  const commonOpenGraph = {
+    title,
+    description,
+    url: shareUrl,
+    siteName: "Fling",
+    locale: "en_US",
+  } as const;
+
+  if (isVideo) {
+    return {
+      title,
+      description,
+      alternates: { canonical: shareUrl },
+      openGraph: {
+        ...commonOpenGraph,
+        type: "video.other",
+        videos: [
+          {
+            url: mediaUrl,
+            secureUrl: mediaUrl.protocol === "https:" ? mediaUrl : undefined,
+            type: capture.mimeType,
+            width: 1280,
+            height: 720,
+          },
+        ],
+      },
+      twitter: {
+        card: "player",
+        title,
+        description,
+        players: [
+          {
+            playerUrl: shareUrl,
+            streamUrl: mediaUrl,
+            width: 1280,
+            height: 720,
+          },
+        ],
+      },
+      other: {
+        "twitter:player:stream:content_type": capture.mimeType,
+      },
+    };
+  }
+
+  const image = {
+    url: mediaUrl,
+    secureUrl: mediaUrl.protocol === "https:" ? mediaUrl : undefined,
+    alt: capture.title,
+    type: capture.mimeType,
+  };
+
+  return {
+    title,
+    description,
+    alternates: { canonical: shareUrl },
+    openGraph: {
+      ...commonOpenGraph,
+      type: "website",
+      images: [image],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
+    },
+  };
 }
 
 export default async function SharePage({ params }: SharePageProps) {
