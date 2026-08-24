@@ -1,5 +1,6 @@
 services:
   site:
+    image: fling-site:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -14,6 +15,27 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  cleanup:
+    profiles: ["maintenance"]
+    image: fling-site:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      CLEANUP_URL: http://site:3000/api/internal/cleanup-expired
+    command:
+      - sh
+      - -c
+      - >-
+        test -n "$${CLEANUP_SECRET}" &&
+        wget -qO- --post-data='' --header="x-cleanup-secret: $${CLEANUP_SECRET}" "$${CLEANUP_URL}"
+    depends_on:
+      site:
+        condition: service_started
+    restart: "no"
 
   postgres:
     image: postgres:16-alpine

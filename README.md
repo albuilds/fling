@@ -85,6 +85,7 @@ S3_SECRET_ACCESS_KEY=<secret-access-key>
 S3_FORCE_PATH_STYLE=true
 
 MAX_UPLOAD_BYTES=104857600
+CLEANUP_SECRET=<random-secret>
 ```
 
 Create an OAuth web client in Google Cloud and register this local callback URL:
@@ -125,6 +126,29 @@ npm --prefix apps/site run typecheck
 npm --prefix apps/site run build
 npm --prefix apps/desktop run build
 ```
+
+## Expired capture cleanup
+
+Expired captures can be deleted with the cleanup service. First, add a secret to
+`apps/site/.env` (you can generate one with `openssl rand -hex 32`):
+
+```dotenv
+CLEANUP_SECRET=<random-secret>
+```
+
+Run it manually with:
+
+```bash
+docker compose --profile maintenance run --rm cleanup
+```
+
+To run it every hour on the VPS, open the crontab with `crontab -e` and add:
+
+```cron
+17 * * * * cd /path/to/fling/apps/site && /usr/bin/docker compose --profile maintenance run --rm cleanup
+```
+
+Replace the path with the actual location of the project on the VPS.
 
 ## Current status
 
