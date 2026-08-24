@@ -71,6 +71,7 @@ AUTH_URL=http://localhost:3000
 AUTH_SECRET=<random-secret>
 GOOGLE_CLIENT_ID=<google-client-id>
 GOOGLE_CLIENT_SECRET=<google-client-secret>
+ALLOWED_EMAILS=
 
 DATABASE_URL=postgres://postgres:password@localhost:5432/fling_dev
 POSTGRES_USER=postgres
@@ -86,6 +87,13 @@ S3_FORCE_PATH_STYLE=true
 
 MAX_UPLOAD_BYTES=104857600
 CLEANUP_SECRET=<random-secret>
+```
+
+`ALLOWED_EMAILS` is optional. Leave it blank to allow any Google account, or
+provide a comma-separated list to restrict sign-in:
+
+```dotenv
+ALLOWED_EMAILS=you@example.com,friend@example.com
 ```
 
 Create an OAuth web client in Google Cloud and register this local callback URL:
