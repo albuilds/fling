@@ -8,8 +8,9 @@ Fling is a cross-platform screen-capture and sharing application built for fast 
 
 ## Features
 
-- Region and full-screen screenshots
+- Region and full-screen screenshots on any monitor, including the menu bar
 - Region-based screen recording
+- Runs quietly in the menu bar / system tray; appears in the Dock or taskbar only while its window is open
 - Optional microphone and system audio recording
 - Configurable keyboard shortcuts, recording quality, frame rate, and duration
 - Local file saving and screenshot clipboard support
@@ -178,6 +179,28 @@ To run it every hour on the VPS, open the crontab with `crontab -e` and add:
 ```
 
 Replace the path with the actual location of the project on the VPS.
+
+## Troubleshooting
+
+**Screenshots fail with "Failed to get sources" or come out blank (macOS).**
+Fling needs Screen Recording permission and shows a dialog that opens the
+right settings page. In development, macOS checks the app that launched Fling,
+so enable your terminal or editor (for example, Visual Studio Code) under
+System Settings → Privacy & Security → Screen & System Audio Recording, then
+quit and reopen that app.
+
+**"Access Denied" after Google sign-in.** `ALLOWED_EMAILS` is set and the
+account's email isn't in it. Google may report an older address for a renamed
+Gmail account; add both, or leave `ALLOWED_EMAILS` empty to allow anyone. In
+development the blocked address is printed in the site logs.
+
+**Changes to `.env` don't apply in Docker.** Containers read `.env` when they
+are created. Run `docker compose -f docker-compose.dev.yml up -d` again to
+recreate them.
+
+**The desktop app says it can't reach the server.** Start the website first
+(`http://localhost:3000`), then use **Try again**. A saved sign-in is kept
+while the server is down.
 
 ## Current status
 
