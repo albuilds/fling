@@ -653,7 +653,10 @@ export class FlingApp {
       if (selection.width <= 0 || selection.height <= 0) {
         throw new Error("Select a region to record");
       }
-      const controls = createRecordingControls(getRecordingControlsBounds(selection, bounds));
+      const otherWorkAreas = screen.getAllDisplays()
+        .filter((display) => display.id !== sender.display.id)
+        .map((display) => display.workArea);
+      const controls = createRecordingControls(getRecordingControlsBounds(selection, bounds, otherWorkAreas));
       const recording: RecordingSession = { overlay: sender.window, controls, save: null };
       this.recording = recording;
 

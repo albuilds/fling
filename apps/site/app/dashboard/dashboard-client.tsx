@@ -12,6 +12,7 @@ import {
   TimerReset,
 } from "lucide-react";
 import { Brand } from "../components/logo";
+import { useCaptureClock } from "./use-capture-clock";
 
 type Capture = {
   id: string;
@@ -57,9 +58,8 @@ function formatDuration(durationMs: number | null) {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function formatExpiry(expiresAt: string | null) {
-  if (!expiresAt) return "No expiry";
-  const remainingMs = new Date(expiresAt).getTime() - Date.now();
+function formatExpiry(remainingMs: number | null) {
+  if (remainingMs === null) return "No expiry";
   if (remainingMs <= 0) return "Expired";
   const remainingHours = Math.floor(remainingMs / 3_600_000);
   const days = Math.floor(remainingHours / 24);
@@ -70,9 +70,11 @@ function formatExpiry(expiresAt: string | null) {
 export default function DashboardClient({
   user,
   initialCaptures,
+  initialNowMs,
 }: {
   user: DashboardUser;
   initialCaptures: Capture[];
+  initialNowMs: number;
 }) {
   const [activeFilter, setActiveFilter] = useState<Filter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -83,6 +85,7 @@ export default function DashboardClient({
   const [message, setMessage] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
+  const nowMs = useCaptureClock(initialNowMs);
   const displayName = user.name || user.email || "Account";
   const avatarInitial = displayName.trim().charAt(0).toUpperCase() || "?";
 
@@ -237,9 +240,10 @@ export default function DashboardClient({
             const format = capture.mimeType.split("/").pop()?.toUpperCase();
             const meta = [duration, format].filter(Boolean).join(" ");
             const contentUrl = `/api/captures/${encodeURIComponent(capture.publicId)}/content`;
-            const isExpired = Boolean(
-              capture.expiresAt && new Date(capture.expiresAt).getTime() <= Date.now(),
-            );
+            const remainingMs = capture.expiresAt === null
+              ? null
+              : new Date(capture.expiresAt).getTime() - nowMs;
+            const isExpired = remainingMs !== null && remainingMs <= 0;
 
             return (
               <article className="capture-card reveal" key={capture.id}>
@@ -276,7 +280,7 @@ export default function DashboardClient({
                   </div>
                   <span className="expiry-pill">
                     <TimerReset size={13} />
-                    {formatExpiry(capture.expiresAt)}
+                    {formatExpiry(remainingMs)}
                   </span>
                 </div>
                 <div className="capture-actions">

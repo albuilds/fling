@@ -32,7 +32,7 @@
 
 .row-label span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 /* ---- Toggle switch ----------------------------------------------------- */
@@ -55,7 +55,8 @@
   position: absolute;
   inset: 0;
   border: 1px solid var(--border-strong);
-  background: transparent;
+  border-radius: 4px;
+  background: var(--bg);
   cursor: pointer;
   transition:
     background 0.2s,
@@ -69,6 +70,7 @@
   left: 4px;
   width: 12px;
   height: 12px;
+  border-radius: 2px;
   background: var(--faint);
   transition:
     transform 0.2s var(--ease),
@@ -76,17 +78,17 @@
 }
 
 .toggle input:checked + .slider {
-  border-color: var(--text);
-  background: var(--text);
+  border-color: var(--accent);
+  background: var(--active-bg);
 }
 
 .toggle input:checked + .slider::before {
-  background: var(--bg);
+  background: var(--active-fg);
   transform: translateX(16px);
 }
 
 .toggle input:focus-visible + .slider {
-  outline: 1px solid var(--text);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -103,27 +105,28 @@
   min-width: 160px;
   padding: 6px 12px;
   border: 1px solid var(--border-strong);
-  background: transparent;
+  border-radius: 4px;
+  background: var(--bg);
   color: var(--text);
   font-family: var(--mono);
   font-size: 12px;
   text-align: center;
   cursor: pointer;
   user-select: none;
-  outline: none;
   transition:
     border-color 0.15s,
     background 0.15s;
 }
 
 .shortcut-input:hover {
-  border-color: var(--text);
+  border-color: var(--accent);
 }
 
 .shortcut-input.recording {
-  border-color: var(--text);
+  border-color: var(--accent);
   border-style: dashed;
-  background: var(--hover);
+  background: var(--active-bg);
+  color: var(--active-fg);
 }
 
 .shortcut-input .key {
@@ -131,7 +134,9 @@
   min-width: 22px;
   margin: 0 1px;
   padding: 1px 6px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
   /* The system font has proper ⌘ ⇧ ⌥ symbols; the mono font draws them tiny. */
   font-family: -apple-system, "Segoe UI", var(--font);
   font-size: 12px;
@@ -141,6 +146,7 @@
 .btn-clear {
   padding: 5px 10px;
   border: 1px solid var(--border-strong);
+  border-radius: 4px;
   background: none;
   color: var(--muted);
   font-family: var(--mono);
@@ -155,6 +161,7 @@
 
 .btn-clear:hover {
   border-color: var(--danger);
+  background: var(--danger-bg);
   color: var(--danger);
 }
 
@@ -166,23 +173,22 @@
   height: 34px;
   padding: 0 34px 0 12px;
   border: 1px solid var(--border-strong);
-  border-radius: 0;
+  border-radius: 4px;
   background:
     linear-gradient(45deg, transparent 50%, var(--muted) 50%) calc(100% - 17px) 13px / 5px
       5px no-repeat,
     linear-gradient(135deg, var(--muted) 50%, transparent 50%) calc(100% - 12px) 13px /
       5px 5px no-repeat,
-    transparent;
+    var(--bg);
   color: var(--text);
   font: 500 13px/1 var(--font);
   cursor: pointer;
-  outline: none;
   transition: border-color 0.15s;
 }
 
 .settings-select:hover,
 .settings-select:focus {
-  border-color: var(--text);
+  border-color: var(--accent);
 }
 
 .settings-select option {
@@ -215,8 +221,8 @@
 }
 
 .account-state.signed-in .status-dot {
-  border-color: var(--text);
-  background: var(--text);
+  border-color: var(--success);
+  background: var(--success);
 }
 
 .account-actions {
@@ -232,6 +238,7 @@
   height: 34px;
   padding: 0 18px;
   border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
   background: transparent;
   font-size: 13px;
   font-weight: 500;
@@ -247,19 +254,21 @@
 }
 
 .btn-ghost:hover {
-  border-color: var(--text);
+  border-color: var(--accent);
+  background: var(--hover);
   color: var(--text);
 }
 
 .btn-primary {
-  border-color: var(--text);
-  background: var(--text);
-  color: var(--bg);
+  border-color: var(--button-bg);
+  background: var(--button-finish) var(--button-bg);
+  box-shadow: 0 2px 6px var(--shadow-ink);
+  color: var(--button-fg);
 }
 
 .btn-primary:hover {
-  background: transparent;
-  color: var(--text);
+  border-color: var(--button-hover);
+  background-color: var(--button-hover);
 }
 
 .save-status {
@@ -274,7 +283,7 @@
 
 .save-status::before {
   content: "✓ ";
-  color: var(--text);
+  color: var(--success);
 }
 
 .save-status.visible {

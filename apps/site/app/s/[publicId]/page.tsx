@@ -1,3 +1,4 @@
+import { auth } from "@/auth";
 import { getAppOrigin } from "@/lib/app-url";
 import { prisma } from "@/lib/prisma";
 import { Download, Film, ImageIcon, TimerReset } from "lucide-react";
@@ -155,13 +156,15 @@ export async function generateMetadata({ params }: SharePageProps): Promise<Meta
 
 export default async function SharePage({ params }: SharePageProps) {
   const { publicId } = await params;
-  const capture = await getCapture(publicId);
+  const [capture, session] = await Promise.all([getCapture(publicId), auth()]);
 
   if (!capture || (capture.expiresAt && capture.expiresAt <= new Date())) {
     notFound();
   }
 
-  const mediaUrl = `/api/captures/${encodeURIComponent(publicId)}/content`;
+  const shareId = encodeURIComponent(capture.publicId);
+  const mediaUrl = `/api/captures/${shareId}/content`;
+  const loginUrl = `/login?callbackUrl=${encodeURIComponent(`/s/${shareId}`)}`;
   const isVideo = capture.type === "VIDEO";
   const Icon = isVideo ? Film : ImageIcon;
 
@@ -170,7 +173,11 @@ export default async function SharePage({ params }: SharePageProps) {
       <header className="site-header">
         <Brand />
         <nav className="nav" aria-label="Primary navigation">
-          <a href="/login">Log in</a>
+          {session?.user ? (
+            <a href="/dashboard">Library</a>
+          ) : (
+            <a href={loginUrl}>Log in</a>
+          )}
         </nav>
       </header>
 

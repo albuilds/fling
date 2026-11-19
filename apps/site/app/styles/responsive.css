@@ -65,6 +65,10 @@
     justify-self: end;
   }
 
+  .site-header > .nav:last-child {
+    grid-column: 2;
+  }
+
   .site-header > .account-chip,
   .site-header > .header-action {
     display: none;

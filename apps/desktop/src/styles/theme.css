@@ -1,11 +1,4 @@
-/*
- * Shared design tokens and fonts for every desktop page, matching the
- * website: strictly black and white, with red only for errors and the
- * recording indicator.
- *
- * The theme follows the system unless the user picks one in settings, in
- * which case scripts set data-theme="dark" or data-theme="light" on <html>.
- */
+/* Shared colors and type for desktop windows and capture overlays. */
 
 @font-face {
   font-family: "Geist";
@@ -38,22 +31,40 @@
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
 
-  --bg: #000;
-  --surface: #0a0a0a;
-  --border: #1f1f1f;
-  --border-strong: #333;
-  --text: #f4f4f2;
-  --muted: #8f8f8c;
-  --faint: #555553;
-  --inverse-bg: #f4f4f2;
-  --inverse-fg: #000;
-  --hover: rgba(255, 255, 255, 0.04);
-  --panel: rgba(0, 0, 0, 0.94);
-  --scrim: rgba(0, 0, 0, 0.5);
-  --danger: #ff5a4f;
-  --rec: #ff3b30;
+  --bg: light-dark(#f5f2ed, #19191c);
+  --surface: light-dark(#fcfaf6, #232327);
+  --border: light-dark(#d9d3cc, #39383f);
+  --border-strong: light-dark(#87818a, #777380);
+  --text: light-dark(#26252b, #f0ebe4);
+  --muted: light-dark(#514d56, #c5beb6);
+  --faint: light-dark(#67616c, #a9a29b);
+  --hover: light-dark(#ebe6df, #303039);
+  --panel: light-dark(#faf7f1, #27272d);
+  --accent: light-dark(#4d5d92, #b3bfe7);
+  --active-bg: light-dark(#e2e7f3, #363c51);
+  --active-fg: light-dark(#344574, #e6eaff);
+  --button-bg: light-dark(#35323b, #ded5c7);
+  --button-fg: light-dark(#faf6ef, #27231f);
+  --button-hover: light-dark(#4c4653, #eee5d7);
+  --danger: light-dark(#a82e32, #ffa39a);
+  --danger-bg: light-dark(#f3dcda, #663936);
+  --success: light-dark(#3f6342, #b9cfb4);
+  --ambient-cool: light-dark(rgb(138 155 219 / 25%), rgb(113 126 213 / 16%));
+  --ambient-warm: light-dark(rgb(228 178 119 / 23%), rgb(189 128 94 / 12%));
+  --surface-light: light-dark(rgb(255 255 255 / 76%), rgb(230 225 255 / 7%));
+  --button-glint: light-dark(rgb(255 255 255 / 12%), rgb(255 253 247 / 28%));
+  --shadow-ink: light-dark(rgb(59 46 34 / 10%), rgb(0 0 0 / 22%));
+  --surface-finish: linear-gradient(155deg, var(--surface-light), transparent 72%), var(--surface);
+  --panel-shadow: inset 0 1px var(--surface-light), 0 5px 16px var(--shadow-ink);
+  --button-finish: linear-gradient(var(--button-glint), transparent);
+  --radius-control: 7px;
+  --radius-panel: 10px;
+  --scrim: rgb(21 21 26 / 50%);
+  --selection-shadow: rgb(15 15 20 / 26%);
+  --rec: #ff7067;
+  --overlay-shadow: 0 8px 24px rgb(14 14 18 / 25%);
 
   --font: "Geist", -apple-system, "Segoe UI", sans-serif;
   --mono: "Geist Mono", ui-monospace, Menlo, Consolas, monospace;
@@ -61,42 +72,12 @@
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    color-scheme: light;
-
-    --bg: #fff;
-    --surface: #f7f7f5;
-    --border: #e6e6e3;
-    --border-strong: #cfcfcb;
-    --text: #0a0a0a;
-    --muted: #62625f;
-    --faint: #a4a4a0;
-    --inverse-bg: #0a0a0a;
-    --inverse-fg: #fff;
-    --hover: rgba(0, 0, 0, 0.035);
-    --panel: rgba(255, 255, 255, 0.96);
-    --scrim: rgba(255, 255, 255, 0.45);
-    --danger: #d4301f;
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-
-  --bg: #fff;
-  --surface: #f7f7f5;
-  --border: #e6e6e3;
-  --border-strong: #cfcfcb;
-  --text: #0a0a0a;
-  --muted: #62625f;
-  --faint: #a4a4a0;
-  --inverse-bg: #0a0a0a;
-  --inverse-fg: #fff;
-  --hover: rgba(0, 0, 0, 0.035);
-  --panel: rgba(255, 255, 255, 0.96);
-  --scrim: rgba(255, 255, 255, 0.45);
-  --danger: #d4301f;
 }
 
 *,
@@ -115,12 +96,12 @@ select {
 }
 
 ::selection {
-  background: var(--text);
-  color: var(--bg);
+  background: var(--active-bg);
+  color: var(--active-fg);
 }
 
 :focus-visible {
-  outline: 1px solid var(--text);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 

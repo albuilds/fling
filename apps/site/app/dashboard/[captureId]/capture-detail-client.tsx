@@ -13,7 +13,8 @@ import {
 import { Brand } from "../../components/logo";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useCaptureClock } from "../use-capture-clock";
 
 export type CaptureDetail = {
   id: string;
@@ -49,9 +50,8 @@ function formatDuration(durationMs: number | null) {
     : `${minutes}:${remainder.toString().padStart(2, "0")}`;
 }
 
-function formatExpiry(expiresAt: string | null) {
-  if (!expiresAt) return "No expiry";
-  const remainingMs = new Date(expiresAt).getTime() - Date.now();
+function formatExpiry(remainingMs: number | null) {
+  if (remainingMs === null) return "No expiry";
   if (remainingMs <= 0) return "Expired";
   const hours = Math.max(1, Math.ceil(remainingMs / 3_600_000));
   const days = Math.floor(hours / 24);
@@ -75,21 +75,37 @@ async function copyText(value: string) {
   input.remove();
 }
 
-export default function CaptureDetailClient({ capture }: { capture: CaptureDetail }) {
+export default function CaptureDetailClient({
+  capture,
+  initialNowMs,
+  initialUploadDate,
+}: {
+  capture: CaptureDetail;
+  initialNowMs: number;
+  initialUploadDate: string;
+}) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [uploadDate, setUploadDate] = useState(initialUploadDate);
+  const nowMs = useCaptureClock(initialNowMs);
+
+  useEffect(() => {
+    setUploadDate(new Date(capture.createdAt).toLocaleDateString());
+  }, [capture.createdAt]);
+
   const isVideo = capture.type === "video";
-  const isExpired = Boolean(
-    capture.expiresAt && new Date(capture.expiresAt).getTime() <= Date.now(),
-  );
+  const remainingMs = capture.expiresAt === null
+    ? null
+    : new Date(capture.expiresAt).getTime() - nowMs;
+  const isExpired = remainingMs !== null && remainingMs <= 0;
   const Icon = isVideo ? Film : ImageIcon;
   const contentUrl = `/api/captures/${encodeURIComponent(capture.publicId)}/content`;
   const sharePath = `/s/${encodeURIComponent(capture.publicId)}`;
   const duration = formatDuration(capture.durationMs);
   const detailLine = [
-    `Uploaded ${new Date(capture.createdAt).toLocaleDateString()}`,
+    `Uploaded ${uploadDate}`,
     duration,
     capture.mimeType.split("/").pop()?.toUpperCase(),
     formatBytes(capture.byteSize),
@@ -188,7 +204,7 @@ export default function CaptureDetailClient({ capture }: { capture: CaptureDetai
                 <TimerReset size={15} />
                 {isExpired ? "Status" : "Expires in"}
               </span>
-              <strong>{formatExpiry(capture.expiresAt)}</strong>
+              <strong>{formatExpiry(remainingMs)}</strong>
               <small>The share link stops working after expiration.</small>
             </div>
 

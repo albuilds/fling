@@ -1,24 +1,40 @@
-/*
- * Design tokens. Fling is strictly black and white: dark mode is white on
- * black, light mode is black on white. Grays are only used for secondary
- * text and hairlines. Red appears only for destructive actions and errors.
- */
+/* Warm neutral surfaces, with a cool accent for focus and selected controls. */
 
 :root {
   color-scheme: dark;
 
-  --bg: #000;
-  --bg-raised: #0a0a0a;
-  --bg-sunken: #050505;
-  --line: #1c1c1c;
-  --line-strong: #2e2e2e;
-  --fg: #f4f4f2;
-  --fg-muted: #8f8f8c;
-  --fg-faint: #555553;
-  --inverse-bg: #f4f4f2;
-  --inverse-fg: #000;
-  --danger: #ff5a4f;
-  --grid-line: rgba(255, 255, 255, 0.045);
+  --bg: #19191c;
+  --bg-raised: #232327;
+  --bg-sunken: #151517;
+  --line: #39383f;
+  --control-line: #777380;
+  --fg: #f0ebe4;
+  --fg-muted: #c5beb6;
+  --fg-faint: #a9a29b;
+  --hover: #303039;
+  --accent: #b3bfe7;
+  --active-bg: #363c51;
+  --active-fg: #e6eaff;
+  --button-bg: #ded5c7;
+  --button-fg: #27231f;
+  --button-hover: #eee5d7;
+  --danger: #ffa39a;
+  --danger-bg: #663936;
+  --success: #b9cfb4;
+  --feature-bg: #2a282b;
+  --line-strong: #54515b;
+  --grid-line: rgb(190 185 202 / 7%);
+  --ambient-cool: rgb(113 126 213 / 24%);
+  --ambient-warm: rgb(189 128 94 / 16%);
+  --surface-light: rgb(230 225 255 / 7%);
+  --button-glint: rgb(255 253 247 / 28%);
+  --shadow-ink: rgb(0 0 0 / 22%);
+  --overlay-shadow: 0 12px 30px rgb(0 0 0 / 24%);
+  --panel-shadow: inset 0 1px var(--surface-light), 0 5px 16px var(--shadow-ink);
+  --surface-finish: linear-gradient(155deg, var(--surface-light), transparent 65%), var(--bg-raised);
+  --button-finish: linear-gradient(var(--button-glint), transparent);
+  --radius-control: 7px;
+  --radius-panel: 12px;
 
   /* next/font sets --font-sans, --font-mono, and --font-display on <html>. */
   --type-sans: var(--font-sans, system-ui), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -35,17 +51,32 @@
   :root {
     color-scheme: light;
 
-    --bg: #fff;
-    --bg-raised: #f7f7f5;
-    --bg-sunken: #fafaf9;
-    --line: #e6e6e3;
-    --line-strong: #cfcfcb;
-    --fg: #0a0a0a;
-    --fg-muted: #62625f;
-    --fg-faint: #a4a4a0;
-    --inverse-bg: #0a0a0a;
-    --inverse-fg: #fff;
-    --danger: #d4301f;
-    --grid-line: rgba(0, 0, 0, 0.05);
+    --bg: #f5f2ed;
+    --bg-raised: #fcfaf6;
+    --bg-sunken: #ede8e1;
+    --line: #d9d3cc;
+    --control-line: #87818a;
+    --fg: #26252b;
+    --fg-muted: #514d56;
+    --fg-faint: #67616c;
+    --hover: #ebe6df;
+    --accent: #4d5d92;
+    --active-bg: #e2e7f3;
+    --active-fg: #344574;
+    --button-bg: #35323b;
+    --button-fg: #faf6ef;
+    --button-hover: #4c4653;
+    --danger: #a82e32;
+    --danger-bg: #f3dcda;
+    --success: #3f6342;
+    --feature-bg: #e8e2d9;
+    --line-strong: #bcb5b9;
+    --grid-line: rgb(66 57 73 / 8%);
+    --ambient-cool: rgb(138 155 219 / 30%);
+    --ambient-warm: rgb(228 178 119 / 26%);
+    --surface-light: rgb(255 255 255 / 76%);
+    --button-glint: rgb(255 255 255 / 12%);
+    --shadow-ink: rgb(59 46 34 / 10%);
+    --overlay-shadow: 0 12px 30px rgb(54 45 36 / 10%);
   }
 }

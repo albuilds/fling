@@ -4,6 +4,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   min-height: calc(100vh - var(--header-height));
+  background: radial-gradient(ellipse at 13% 32%, var(--ambient-cool), transparent 62%);
 }
 
 .auth-panel {
@@ -44,20 +45,20 @@
   gap: 14px;
   height: 54px;
   padding: 0 18px 0 6px;
-  border: 1px solid var(--fg);
-  background: var(--fg);
-  color: var(--bg);
+  border: 1px solid var(--button-bg);
+  border-radius: var(--radius-control);
+  color: var(--button-fg);
   font-size: 15px;
   font-weight: 500;
   text-align: left;
   transition:
-    background 180ms ease,
-    color 180ms ease;
+    background-color 180ms ease,
+    border-color 180ms ease;
 }
 
 .google-button:hover {
-  background: transparent;
-  color: var(--fg);
+  border-color: var(--button-hover);
+  background-color: var(--button-hover);
 }
 
 .google-button svg {
@@ -88,15 +89,18 @@
   border-left: 1px solid var(--line);
   background-color: var(--bg-sunken);
   background-image:
+    radial-gradient(ellipse at 58% 52%, var(--ambient-warm), transparent 65%),
     linear-gradient(var(--grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 56px 56px;
+  background-size: auto, 56px 56px, 56px 56px;
 }
 
 .mini-window {
   width: min(100%, 400px);
   border: 1px solid var(--line-strong);
-  background: var(--bg);
+  border-radius: var(--radius-panel);
+  background: var(--surface-finish);
+  box-shadow: var(--panel-shadow), var(--overlay-shadow);
 }
 
 .mini-titlebar {
@@ -113,7 +117,7 @@
 
 .mini-titlebar span:last-child::before {
   content: "● ";
-  color: var(--fg);
+  color: var(--success);
 }
 
 .mini-capture {
@@ -172,7 +176,8 @@
 .mini-meter i {
   grid-column: 1 / -1;
   height: 4px;
-  background: linear-gradient(90deg, var(--fg) 64%, var(--line) 64%);
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent) 64%, var(--line) 64%);
 }
 
 /* ---- Device approval --------------------------------------------------- */
@@ -206,8 +211,9 @@
   width: 100%;
   height: 76px;
   padding: 0 20px;
-  border: 1px solid var(--line-strong);
-  background: transparent;
+  border: 1px solid var(--control-line);
+  border-radius: var(--radius-control);
+  background: var(--surface-finish);
   font-family: var(--type-mono);
   font-size: 30px;
   letter-spacing: 0.32em;
@@ -217,8 +223,7 @@
 }
 
 .device-form input:focus {
-  border-color: var(--fg);
-  outline: none;
+  border-color: var(--accent);
 }
 
 .device-form input::placeholder {
@@ -251,7 +256,10 @@
   justify-items: start;
   gap: 10px;
   padding: 24px;
-  border: 1px solid var(--fg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-panel);
+  background: var(--surface-finish);
+  box-shadow: var(--panel-shadow);
 }
 
 .device-success strong {
@@ -271,6 +279,6 @@
   width: 40px;
   height: 40px;
   margin-bottom: 8px;
-  background: var(--fg);
-  color: var(--bg);
+  background: var(--active-bg);
+  color: var(--success);
 }

@@ -27,6 +27,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClient
+      initialNowMs={Date.now()}
       initialCaptures={captures.map((capture) => ({
         ...capture,
         type: capture.type === "VIDEO" ? "video" : "image",

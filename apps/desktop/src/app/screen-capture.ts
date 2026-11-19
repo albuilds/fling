@@ -20,11 +20,15 @@ async function getScreenSource(display: Electron.Display, thumbnailSize: Electro
   const matched = sources.find((source) => source.display_id === String(display.id));
   if (matched) return matched;
 
-  // Some platforms omit display IDs. Use position only for an unidentified source.
+  // Pair any sources missing IDs with the displays left after matching known IDs.
   const displays = screen.getAllDisplays();
-  const index = displays.findIndex((item) => item.id === display.id);
-  const fallback = sources[index];
-  if (sources.length === displays.length && fallback?.display_id === "") return fallback;
+  if (sources.length === displays.length) {
+    const knownIds = new Set(sources.map((source) => source.display_id));
+    const unidentified = sources.filter((source) => source.display_id === "");
+    const unmatched = displays.filter((item) => !knownIds.has(String(item.id)));
+    const index = unmatched.findIndex((item) => item.id === display.id);
+    if (index >= 0 && unidentified.length === unmatched.length) return unidentified[index];
+  }
   throw new Error("The selected display is no longer available");
 }
 

@@ -56,10 +56,12 @@ body.recording .selection::after {
   z-index: 2;
   padding: 8px 12px;
   border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
   background: var(--panel);
-  color: var(--muted);
+  box-shadow: var(--panel-shadow);
+  color: var(--text);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.04em;
   line-height: 1;
   white-space: nowrap;
@@ -76,7 +78,7 @@ body.recording .selection::after {
   border: 2px dashed #fff;
   outline: 1px solid rgba(0, 0, 0, 0.6);
   background: transparent;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 9999px var(--selection-shadow);
   pointer-events: none;
 }
 
@@ -119,10 +121,13 @@ body.recording .selection::after {
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
+  width: max-content;
   max-width: calc(100vw - 20px);
   padding: 7px 8px;
   border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
   background: var(--panel);
+  box-shadow: inset 0 1px var(--surface-light), var(--overlay-shadow);
   cursor: default;
 }
 
@@ -139,9 +144,9 @@ body.recording .selection::after {
 
 .option-label {
   margin-right: 8px;
-  color: var(--faint);
-  font: 500 10px/1 var(--mono);
-  letter-spacing: 0.1em;
+  color: var(--muted);
+  font: 500 11px/1 var(--mono);
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
@@ -153,7 +158,7 @@ body.recording .selection::after {
   border: 1px solid var(--border-strong);
   background: transparent;
   color: var(--muted);
-  font: 500 11px/1 var(--mono);
+  font: 500 12px/1 var(--mono);
   cursor: pointer;
   transition:
     background 0.15s,
@@ -164,7 +169,7 @@ body.recording .selection::after {
   margin-left: -1px;
 }
 
-.option-button:hover:not(.active) {
+.option-button:hover:not(.active, :disabled) {
   color: var(--text);
   background: var(--hover);
 }
@@ -172,9 +177,9 @@ body.recording .selection::after {
 .option-button.active {
   position: relative;
   z-index: 1;
-  border-color: var(--text);
-  background: var(--text);
-  color: var(--bg);
+  border-color: var(--accent);
+  background: var(--active-bg);
+  color: var(--active-fg);
 }
 
 .option-button:disabled {
@@ -191,6 +196,7 @@ body.recording .selection::after {
 }
 
 .microphone-select {
+  display: none;
   appearance: none;
   width: 136px;
   max-width: 28vw;
@@ -203,21 +209,21 @@ body.recording .selection::after {
       5px no-repeat,
     linear-gradient(135deg, var(--muted) 50%, transparent 50%) calc(100% - 9px) 11px / 5px
       5px no-repeat,
-    transparent;
+    var(--bg);
   color: var(--text);
   font: 500 11px/1 var(--mono);
   cursor: pointer;
-  outline: none;
   transition: border-color 0.15s;
 }
 
 .microphone-select:hover:not(:disabled),
 .microphone-select:focus {
-  border-color: var(--text);
+  border-color: var(--accent);
 }
 
 .microphone-select.enabled {
-  border-color: var(--text);
+  display: block;
+  border-color: var(--accent);
 }
 
 .microphone-select:disabled {
@@ -241,13 +247,21 @@ button {
   cursor: pointer;
 }
 
-/* Record button: inverted, with a red dot for "record". */
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* The red dot distinguishes Record from the other toolbar actions. */
 .record-button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: var(--text);
-  color: var(--bg);
+  border-radius: var(--radius-control);
+  background: var(--button-finish) var(--button-bg);
+  color: var(--button-fg);
   transition:
     background 0.15s,
     color 0.15s;
@@ -258,13 +272,11 @@ button {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--rec);
+  background: light-dark(#ff8e85, #a82e32);
 }
 
-.record-button:hover {
-  background: transparent;
-  color: var(--text);
-  box-shadow: 0 0 0 1px var(--text) inset;
+.record-button:hover:not(:disabled) {
+  background-color: var(--button-hover);
 }
 
 .record-button:disabled {
@@ -289,7 +301,7 @@ button {
   padding: 0 6px;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .status.visible {

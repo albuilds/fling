@@ -83,6 +83,10 @@ function setToolbarPosition(rect) {
   toolbar.style.top = `${clamp(top, gap, viewportHeight - toolbarRect.height - gap)}px`;
 }
 
+new ResizeObserver(() => {
+  if (selectedRect && !isRecording) setToolbarPosition(selectedRect);
+}).observe(toolbar);
+
 function setStatus(message) {
   status.textContent = message;
   status.classList.add("visible");

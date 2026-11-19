@@ -12,7 +12,10 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--bg);
+  background:
+    radial-gradient(ellipse at 5% 0%, var(--ambient-cool), transparent 58%),
+    radial-gradient(ellipse at 100% 100%, var(--ambient-warm), transparent 48%),
+    var(--bg);
   color: var(--text);
   font-family: var(--font);
   font-size: 14px;
@@ -27,18 +30,20 @@ header {
   top: 0;
   z-index: 10;
   display: flex;
+  flex: none;
   align-items: center;
   gap: 10px;
   height: 52px;
   padding: 0 10px 0 22px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--surface-finish);
+  box-shadow: 0 4px 12px var(--shadow-ink);
   -webkit-app-region: drag;
 }
 
 header .logo-mark {
   flex-shrink: 0;
-  color: var(--text);
+  color: var(--accent);
 }
 
 header h1 {
@@ -73,6 +78,7 @@ header h1 + .window-controls {
   width: 34px;
   height: 30px;
   border: 0;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -87,8 +93,8 @@ header h1 + .window-controls {
 }
 
 .window-control.close:hover {
-  background: var(--danger);
-  color: #fff;
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 button,
@@ -111,7 +117,9 @@ main {
 
 .section {
   border: 1px solid var(--border);
-  background: var(--bg);
+  border-radius: var(--radius-panel);
+  background: var(--surface-finish);
+  box-shadow: var(--panel-shadow);
 }
 
 .section-header {
@@ -122,32 +130,28 @@ main {
   border-bottom: 1px solid var(--border);
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.12em;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-/* Decorative section icons are replaced by a short rule; buttons keep theirs. */
 .section-header > svg {
-  display: none;
-}
-
-.section-header::before {
-  content: "";
-  width: 14px;
-  height: 1px;
-  background: currentColor;
+  flex: none;
+  color: var(--accent);
 }
 
 /* ---- Footer bar -------------------------------------------------------- */
 
 footer {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 24px;
   border-top: 1px solid var(--border);
+  background: var(--surface-finish);
 }
 
 /* ---- Scrollbars -------------------------------------------------------- */

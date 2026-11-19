@@ -45,6 +45,7 @@ export function clampScreenshotRect(
 export function getRecordingControlsBounds(
   selection: Rect,
   bounds: Electron.Rectangle,
+  otherWorkAreas: Electron.Rectangle[],
 ): Electron.Rectangle {
   const width = Math.min(TIMER_WIDTH, bounds.width);
   const height = Math.min(TIMER_HEIGHT, bounds.height);
@@ -55,14 +56,30 @@ export function getRecordingControlsBounds(
   const centerX = Math.max(0, Math.min(maxX, selection.left + (selection.width - width) / 2));
   const centerY = Math.max(0, Math.min(maxY, selection.top + (selection.height - height) / 2));
   const preferred = [
-    { x: centerX, y: bottom + TIMER_GAP },
-    { x: centerX, y: selection.top - height - TIMER_GAP },
-    { x: right + TIMER_GAP, y: centerY },
-    { x: selection.left - width - TIMER_GAP, y: centerY },
+    bottom <= maxY && { x: centerX, y: Math.min(maxY, bottom + TIMER_GAP) },
+    selection.top >= height && { x: centerX, y: Math.max(0, selection.top - height - TIMER_GAP) },
+    right <= maxX && { x: Math.min(maxX, right + TIMER_GAP), y: centerY },
+    selection.left >= width && { x: Math.max(0, selection.left - width - TIMER_GAP), y: centerY },
   ];
-  const { x, y } = preferred.find((point) =>
-    point.x >= 0 && point.x <= maxX && point.y >= 0 && point.y <= maxY,
-  ) ?? { x: centerX, y: Math.max(0, maxY - TIMER_GAP) };
+  const position = preferred.find(Boolean);
+  if (position) {
+    return { x: bounds.x + Math.round(position.x), y: bounds.y + Math.round(position.y), width, height };
+  }
 
-  return { x: bounds.x + Math.round(x), y: bounds.y + Math.round(y), width, height };
+  const nearX = bounds.x + selection.left + selection.width / 2;
+  const nearY = bounds.y + selection.top + selection.height / 2;
+  let closest: Electron.Rectangle | null = null;
+  let closestDistance = Infinity;
+  for (const area of otherWorkAreas) {
+    if (area.width < TIMER_WIDTH || area.height < TIMER_HEIGHT) continue;
+    const x = Math.max(area.x, Math.min(nearX - TIMER_WIDTH / 2, area.x + area.width - TIMER_WIDTH));
+    const y = Math.max(area.y, Math.min(nearY - TIMER_HEIGHT / 2, area.y + area.height - TIMER_HEIGHT));
+    const distance = Math.hypot(x + TIMER_WIDTH / 2 - nearX, y + TIMER_HEIGHT / 2 - nearY);
+    if (distance < closestDistance) {
+      closest = { x: Math.round(x), y: Math.round(y), width: TIMER_WIDTH, height: TIMER_HEIGHT };
+      closestDistance = distance;
+    }
+  }
+
+  return closest ?? { x: bounds.x + Math.round(centerX), y: bounds.y + Math.max(0, maxY - TIMER_GAP), width, height };
 }

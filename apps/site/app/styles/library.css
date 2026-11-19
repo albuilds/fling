@@ -1,5 +1,11 @@
 /* Capture library (dashboard), capture detail page, and public share page. */
 
+.app:has(> .dashboard-shell, > .detail-shell) {
+  background-image:
+    radial-gradient(ellipse 100% 420px at 8% var(--header-height), var(--ambient-cool), transparent),
+    linear-gradient(color-mix(in srgb, var(--ambient-cool) 30%, transparent), transparent 480px);
+}
+
 .dashboard-shell,
 .detail-shell {
   width: 100%;
@@ -15,7 +21,7 @@
   display: grid;
   gap: 20px;
   padding-bottom: 32px;
-  border-bottom: 1px solid var(--fg);
+  border-bottom: 1px solid var(--line-strong);
 }
 
 .dashboard-heading > div,
@@ -60,7 +66,7 @@
 }
 
 .back-link:hover {
-  color: var(--fg);
+  color: var(--accent);
 }
 
 /* ---- Toolbar ----------------------------------------------------------- */
@@ -81,14 +87,19 @@
   flex: 1 1 280px;
   max-width: 420px;
   height: 42px;
-  border-bottom: 1px solid var(--line-strong);
+  padding: 0 12px;
+  border: 1px solid var(--control-line);
+  border-radius: var(--radius-control);
+  background: var(--surface-finish);
   color: var(--fg-muted);
   transition: border-color 160ms ease;
 }
 
 .search-box:focus-within {
-  border-color: var(--fg);
-  color: var(--fg);
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  color: var(--accent);
 }
 
 .search-box input {
@@ -112,12 +123,18 @@
 
 .filter-tabs {
   display: flex;
-  border: 1px solid var(--line-strong);
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--control-line);
+  border-radius: var(--radius-control);
+  background: var(--bg-sunken);
+  box-shadow: inset 0 1px 4px var(--shadow-ink);
 }
 
 .filter-tabs button {
-  height: 36px;
+  height: 34px;
   padding: 0 16px;
+  border-radius: 4px;
   color: var(--fg-muted);
   font-family: var(--type-mono);
   font-size: 11.5px;
@@ -128,36 +145,43 @@
     background 160ms ease;
 }
 
-.filter-tabs button + button {
-  border-left: 1px solid var(--line-strong);
-}
-
 .filter-tabs button:hover {
+  background: var(--hover);
   color: var(--fg);
 }
 
 .filter-tabs button.active {
-  background: var(--fg);
-  color: var(--bg);
+  background: var(--active-bg);
+  box-shadow: inset 0 -2px var(--accent);
+  color: var(--active-fg);
 }
 
 /* ---- Capture grid ------------------------------------------------------ */
-/* Each card draws a 1px ring; neighbouring rings overlap in the 1px gap, so
-   cards share a single hairline and empty cells stay blank. */
-
 .capture-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
-  gap: 1px;
-  padding: 1px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 272px), 1fr));
+  gap: 16px;
 }
 
 .capture-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
-  box-shadow: 0 0 0 1px var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface-finish);
+  box-shadow: var(--panel-shadow);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.capture-card:hover,
+.capture-card:focus-within {
+  border-color: var(--line-strong);
+  box-shadow: var(--panel-shadow), 0 9px 20px var(--shadow-ink);
+}
+
+.capture-card:has(.capture-menu) {
+  z-index: 1;
 }
 
 .capture-thumb {
@@ -165,9 +189,13 @@
   display: block;
   aspect-ratio: 16 / 10;
   overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  border-radius: calc(var(--radius-panel) - 1px) calc(var(--radius-panel) - 1px) 0 0;
   background-color: var(--bg-sunken);
-  background-image: radial-gradient(var(--line-strong) 1px, transparent 1px);
-  background-size: 12px 12px;
+  background-image:
+    radial-gradient(ellipse at 18% 0%, var(--ambient-cool), transparent 82%),
+    radial-gradient(var(--grid-line) 1px, transparent 1px);
+  background-size: auto, 12px 12px;
 }
 
 .capture-thumb img,
@@ -175,14 +203,14 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition:
-    transform 500ms var(--ease),
-    filter 300ms ease;
+  transition: transform 500ms var(--ease);
 }
 
-.capture-card:hover .capture-thumb img,
-.capture-card:hover .capture-thumb video {
-  transform: scale(1.02);
+@media (prefers-reduced-motion: no-preference) {
+  .capture-card:hover .capture-thumb img,
+  .capture-card:hover .capture-thumb video {
+    transform: scale(1.02);
+  }
 }
 
 /* Expired media is no longer served, so show a struck-through label instead. */
@@ -207,7 +235,10 @@
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
-  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--active-bg);
+  color: var(--active-fg);
   font-family: var(--type-mono);
   font-size: 10.5px;
   letter-spacing: 0.1em;
@@ -242,7 +273,7 @@
 .capture-card-body p {
   color: var(--fg-muted);
   font-family: var(--type-mono);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .expiry-pill {
@@ -251,7 +282,10 @@
   align-items: center;
   gap: 5px;
   padding: 3px 7px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
   font-family: var(--type-mono);
   font-size: 10.5px;
   white-space: nowrap;
@@ -278,9 +312,17 @@
   border-left: 1px solid var(--line);
 }
 
+.capture-actions > :first-child {
+  border-bottom-left-radius: calc(var(--radius-panel) - 1px);
+}
+
+.capture-actions > :last-child {
+  border-bottom-right-radius: calc(var(--radius-panel) - 1px);
+}
+
 .capture-actions > *:hover {
-  background: var(--fg);
-  color: var(--bg);
+  background: var(--hover);
+  color: var(--accent);
 }
 
 .capture-menu {
@@ -290,8 +332,10 @@
   z-index: 5;
   display: grid;
   min-width: 170px;
-  border: 1px solid var(--fg);
-  background: var(--bg);
+  border: 1px solid var(--control-line);
+  border-radius: var(--radius-control);
+  background: var(--surface-finish);
+  box-shadow: var(--overlay-shadow);
   animation: rise 180ms var(--ease) both;
 }
 
@@ -311,8 +355,8 @@
 
 .capture-menu a:hover,
 .capture-menu button:hover:not(:disabled) {
-  background: var(--fg);
-  color: var(--bg);
+  background: var(--hover);
+  color: var(--fg);
 }
 
 .capture-menu .danger {
@@ -320,8 +364,8 @@
 }
 
 .capture-menu .danger:hover:not(:disabled) {
-  background: var(--danger);
-  color: #fff;
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 .empty-state {
@@ -330,8 +374,10 @@
   justify-items: center;
   gap: 8px;
   padding: 88px 24px;
-  background: var(--bg);
-  box-shadow: 0 0 0 1px var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface-finish);
+  box-shadow: var(--panel-shadow);
   text-align: center;
 }
 
@@ -351,7 +397,11 @@
 .detail-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
-  border-bottom: 1px solid var(--line);
+  overflow: clip;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--panel-shadow);
+  margin-top: 24px;
 }
 
 .media-stage {
@@ -361,8 +411,10 @@
   min-height: 420px;
   padding: clamp(20px, 3.5vw, 44px);
   background-color: var(--bg-sunken);
-  background-image: radial-gradient(var(--line-strong) 1px, transparent 1px);
-  background-size: 14px 14px;
+  background-image:
+    radial-gradient(ellipse at 15% 20%, var(--ambient-cool), transparent 78%),
+    radial-gradient(var(--grid-line) 1px, transparent 1px);
+  background-size: auto, 14px 14px;
 }
 
 /* Crop marks around the media, matching the logo. */
@@ -372,8 +424,9 @@
   position: absolute;
   width: 20px;
   height: 20px;
-  border-color: var(--fg);
+  border-color: var(--accent);
   border-style: solid;
+  pointer-events: none;
 }
 
 .media-stage::before {
@@ -399,7 +452,9 @@
   max-height: 70vh;
   object-fit: contain;
   border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   background: var(--bg);
+  box-shadow: var(--overlay-shadow);
 }
 
 video.shared-media {
@@ -427,6 +482,7 @@ video.shared-media {
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--line);
+  background: var(--surface-finish);
 }
 
 .detail-panel > * {
@@ -440,15 +496,16 @@ video.shared-media {
 .expiry-box {
   display: grid;
   gap: 8px;
+  background: radial-gradient(ellipse at 0 0, var(--ambient-cool), transparent 88%);
 }
 
 .expiry-box span {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--fg-muted);
+  color: var(--accent);
   font-family: var(--type-mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -488,15 +545,16 @@ video.shared-media {
   place-items: center;
   width: 36px;
   height: 36px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--control-line);
+  border-radius: 4px;
   transition:
     background 160ms ease,
     color 160ms ease;
 }
 
 .share-link button:hover:not(:disabled) {
-  background: var(--fg);
-  color: var(--bg);
+  background: var(--hover);
+  color: var(--accent);
 }
 
 .share-link button:disabled {

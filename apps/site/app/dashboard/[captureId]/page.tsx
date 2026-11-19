@@ -31,6 +31,8 @@ export default async function CaptureDetailPage({ params }: CaptureDetailPagePro
 
   return (
     <CaptureDetailClient
+      initialNowMs={Date.now()}
+      initialUploadDate={capture.createdAt.toLocaleDateString()}
       capture={{
         ...capture,
         type: capture.type === "VIDEO" ? "video" : "image",

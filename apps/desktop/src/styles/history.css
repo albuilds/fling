@@ -32,13 +32,16 @@
   width: 44px;
   height: 32px;
   overflow: hidden;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-finish);
   color: var(--muted);
 }
 
 .thumb.video {
-  border-color: var(--text);
-  color: var(--text);
+  background: var(--active-bg);
+  box-shadow: inset 0 1px var(--surface-light);
+  color: var(--active-fg);
 }
 
 .upload-meta {
@@ -60,7 +63,7 @@
   overflow: hidden;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -93,6 +96,7 @@
   width: 30px;
   height: 30px;
   border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -102,21 +106,15 @@
     color 0.15s;
 }
 
-.btn-icon:hover {
-  border-color: var(--text);
-  background: var(--text);
-  color: var(--bg);
+.btn-icon:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--active-bg);
+  color: var(--active-fg);
 }
 
 .btn-icon:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.btn-icon:disabled:hover {
-  border-color: var(--border-strong);
-  background: transparent;
-  color: var(--muted);
 }
 
 .refresh-button {

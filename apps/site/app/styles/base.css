@@ -61,12 +61,12 @@ em {
 }
 
 ::selection {
-  background: var(--fg);
-  color: var(--bg);
+  background: var(--active-bg);
+  color: var(--active-fg);
 }
 
 :focus-visible {
-  outline: 1px solid var(--fg);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
