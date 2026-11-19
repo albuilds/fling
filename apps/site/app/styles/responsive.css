@@ -1,0 +1,353 @@
+/* Entrance animations and layout changes for smaller screens. */
+
+@keyframes introUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-content,
+  .scene,
+  .hero-stats,
+  .section-heading,
+  .feature-card,
+  .capture-copy,
+  .capability,
+  .download,
+  .auth-panel,
+  .auth-preview,
+  .dashboard-heading,
+  .library-toolbar,
+  .capture-card,
+  .detail-heading,
+  .media-stage,
+  .detail-panel {
+    animation: introUp 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .scene {
+    animation-delay: 0.12s;
+  }
+
+  .hero-stats {
+    animation-delay: 0.22s;
+  }
+}
+
+@media (max-width: 1120px) {
+  .hero-layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .hero-content {
+    max-width: 760px;
+  }
+
+  .scene-window {
+    max-width: 860px;
+    height: 480px;
+    min-height: 440px;
+  }
+
+  .capture-region {
+    width: min(100%, 400px);
+  }
+}
+
+@media (max-width: 980px) {
+  .site-header {
+    gap: 10px;
+  }
+
+  .nav {
+    display: none;
+  }
+
+  .hero {
+    min-height: auto;
+    align-content: start;
+    padding-top: 96px;
+  }
+
+  .hero-copy {
+    font-size: 18px;
+  }
+
+  .hero h1 {
+    font-size: 84px;
+  }
+
+  .section-heading h2,
+  .capture-copy h2,
+  .download h2 {
+    font-size: 42px;
+  }
+
+  .hero-stats,
+  .capture-band {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-stats div + div {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .scene-desktop {
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 0.6fr);
+    gap: 12px;
+  }
+
+  .preview-row {
+    min-height: 48px;
+  }
+
+  .shortcut-token {
+    min-width: 78px;
+  }
+
+  .workflow-grid {
+    grid-template-columns: repeat(3, minmax(220px, 1fr));
+  }
+
+  .download {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .auth-shell,
+  .dashboard-heading,
+  .detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-preview {
+    min-height: 360px;
+  }
+
+  .usage-panel {
+    max-width: 420px;
+  }
+
+  .capture-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .scene-window {
+    height: 410px;
+    min-height: 410px;
+  }
+
+  .scene-desktop {
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+
+  .overlay-preview {
+    display: none;
+  }
+
+  .preview-main {
+    gap: 8px;
+  }
+
+  .preview-row {
+    min-height: 47px;
+  }
+
+  .workflow-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .site-header {
+    height: 62px;
+    padding-inline: 14px;
+  }
+
+  .brand span {
+    display: none;
+  }
+
+  .header-action span {
+    display: none;
+  }
+
+  .header-action {
+    margin-left: auto;
+    width: 38px;
+    padding: 0;
+  }
+
+  .header-buttons {
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .header-buttons .header-action {
+    margin-left: 0;
+  }
+
+  .account-chip {
+    padding: 3px;
+  }
+
+  .account-name {
+    display: none;
+  }
+
+  .hero {
+    padding: 88px 16px 34px;
+  }
+
+  .hero h1 {
+    font-size: 60px;
+  }
+
+  .hero-copy {
+    font-size: 17px;
+  }
+
+  .button {
+    width: 100%;
+  }
+
+  .hero-proof span {
+    width: 100%;
+  }
+
+  .scene-titlebar {
+    padding-inline: 12px;
+  }
+
+  .scene-version,
+  .scene-controls {
+    display: none;
+  }
+
+  .scene-window {
+    height: 348px;
+    min-height: 348px;
+  }
+
+  .scene-desktop {
+    padding: 14px;
+  }
+
+  .preview-main {
+    padding: 10px;
+  }
+
+  .preview-section:nth-child(3) {
+    display: none;
+  }
+
+  .settings-footer {
+    min-height: 46px;
+    padding-inline: 10px;
+  }
+
+  .save-status {
+    display: none;
+  }
+
+  .footer-action {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 8px;
+  }
+
+  .workflow,
+  .capture-band,
+  .download {
+    padding: 64px 16px;
+  }
+
+  .auth-shell,
+  .dashboard-shell,
+  .detail-shell {
+    padding: 88px 16px 34px;
+  }
+
+  .auth-shell {
+    gap: 18px;
+  }
+
+  .auth-panel h1,
+  .dashboard-heading h1,
+  .detail-heading h1 {
+    font-size: 42px;
+  }
+
+  .auth-preview {
+    display: none;
+  }
+
+  .library-toolbar {
+    flex-direction: column;
+  }
+
+  .filter-tabs {
+    width: 100%;
+  }
+
+  .filter-tabs button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .capture-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .media-stage {
+    min-height: auto;
+    padding: 12px;
+  }
+
+  .video-frame {
+    min-height: 330px;
+  }
+
+  .shared-media-frame {
+    min-height: 260px;
+  }
+
+  .feature-card {
+    min-height: 190px;
+  }
+
+  .section-heading h2,
+  .capture-copy h2,
+  .download h2 {
+    font-size: 34px;
+  }
+}
+
+@media (max-width: 380px) {
+  .scene-window {
+    height: 372px;
+    min-height: 372px;
+  }
+
+  .scene-desktop {
+    padding: 12px;
+  }
+
+  .shortcut-token,
+  .select-token {
+    min-width: 68px;
+    font-size: 9.5px;
+  }
+}

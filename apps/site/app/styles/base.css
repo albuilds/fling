@@ -1,0 +1,326 @@
+/* Reset, theme colors, page shell, header, navigation, and buttons. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  color-scheme: dark;
+  --bg: #0d0d12;
+  --bg-soft: #101018;
+  --surface: #15151e;
+  --surface-strong: #1b1b28;
+  --surface-warm: #15151e;
+  --surface-cool: #141426;
+  --border: #222230;
+  --border-strong: #303044;
+  --accent: #7c5af8;
+  --accent-hover: #8d70ff;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(124, 90, 248, 0.16);
+  --accent-glow: rgba(124, 90, 248, 0.25);
+  --line: rgba(255, 255, 255, 0.1);
+  --line-soft: rgba(255, 255, 255, 0.05);
+  --coral: #f85a5a;
+  --gold: #f2ca6b;
+  --record: #ff6258;
+  --success: #5af8a0;
+  --text: #e8e8f0;
+  --text-strong: #ffffff;
+  --muted: #8e8ea6;
+  --muted-low: #6b6b80;
+  --shadow: rgba(0, 0, 0, 0.42);
+  --font: -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f7f7fb;
+    --bg-soft: #ffffff;
+    --surface: #ffffff;
+    --surface-strong: #f0eff8;
+    --surface-warm: #fbf8ff;
+    --surface-cool: #f4f2ff;
+    --border: #ddddeb;
+    --border-strong: #c9c8dc;
+    --accent: #6f4df2;
+    --accent-hover: #5838d6;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(111, 77, 242, 0.11);
+    --accent-glow: rgba(111, 77, 242, 0.18);
+    --line: rgba(18, 18, 28, 0.1);
+    --line-soft: rgba(18, 18, 28, 0.06);
+    --coral: #dc433d;
+    --gold: #a66a08;
+    --record: #d9453d;
+    --success: #12824b;
+    --text: #292937;
+    --text-strong: #101018;
+    --muted: #626176;
+    --muted-low: #85849a;
+    --shadow: rgba(35, 33, 52, 0.16);
+  }
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  scrollbar-color: var(--border-strong) var(--bg);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(21, 21, 30, 0.96), rgba(13, 13, 18, 0) 360px),
+    linear-gradient(115deg, rgba(124, 90, 248, 0.16), rgba(90, 248, 160, 0.05) 42%, rgba(13, 13, 18, 0) 70%),
+    var(--bg);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app {
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.app::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 0;
+  height: 760px;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 78px 78px,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px) 0 0 / 78px 78px;
+  mask-image: linear-gradient(180deg, black, transparent 78%);
+}
+
+.site-header,
+main {
+  position: relative;
+  z-index: 1;
+}
+
+.site-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 66px;
+  padding: 0 clamp(18px, 5vw, 56px);
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(21, 21, 30, 0.96), rgba(13, 13, 18, 0.94));
+}
+
+.brand,
+.scene-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-strong);
+  font-weight: 750;
+}
+
+.logo {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(124, 90, 248, 0.5);
+  border-radius: 8px;
+  background: rgba(124, 90, 248, 0.14);
+  color: var(--accent-hover);
+  box-shadow: 0 0 18px var(--accent-glow);
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.nav a,
+.nav button {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 10px;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    opacity 0.15s;
+}
+
+.nav a:hover,
+.nav button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.nav a:focus-visible,
+.nav button:focus-visible {
+  outline: 2px solid var(--accent-hover);
+  outline-offset: 2px;
+}
+
+.nav button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.account-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 210px;
+  margin-left: 4px;
+  padding: 4px 8px 4px 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+}
+
+.account-avatar {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  overflow: hidden;
+  border: 1px solid rgba(124, 90, 248, 0.42);
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.account-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-action,
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 750;
+  transition:
+    transform 0.12s,
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s,
+    opacity 0.15s;
+}
+
+.header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-login {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+  transition: color 0.15s;
+}
+
+.header-login:hover {
+  color: var(--text);
+}
+
+.header-login:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent-hover);
+  outline-offset: 2px;
+}
+
+.header-action {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.header-action:hover,
+.button.secondary:hover {
+  border-color: rgba(124, 90, 248, 0.52);
+  background: rgba(124, 90, 248, 0.1);
+  color: var(--text-strong);
+}
+
+.button {
+  padding: 0 18px;
+}
+
+.button:active,
+.header-action:active {
+  transform: scale(0.98);
+}
+
+.button.primary {
+  border: 1px solid rgba(141, 112, 255, 0.64);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.button.primary:hover {
+  background: var(--accent-hover);
+}
+
+.button.secondary {
+  border: 1px solid var(--border);
+  background: rgba(21, 21, 30, 0.74);
+  color: var(--text);
+}
