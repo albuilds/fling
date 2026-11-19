@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { getSafeCallbackUrl } from "@/lib/safe-redirect";
 import { MonitorUp, Zap } from "lucide-react";
 import { redirect } from "next/navigation";
 import { GoogleButton } from "./google-button";
@@ -9,21 +10,6 @@ function Logo() {
       <Zap size={18} strokeWidth={2.5} />
     </span>
   );
-}
-
-function getSafeCallbackUrl(value: string | undefined) {
-  if (!value?.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
-    return "/dashboard";
-  }
-
-  try {
-    const base = new URL("https://fling.invalid");
-    const callback = new URL(value, base);
-    if (callback.origin !== base.origin) return "/dashboard";
-    return `${callback.pathname}${callback.search}${callback.hash}`;
-  } catch {
-    return "/dashboard";
-  }
 }
 
 export default async function LoginPage({
