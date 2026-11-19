@@ -1,15 +1,8 @@
 import { auth } from "@/auth";
-import { MonitorUp, Zap } from "lucide-react";
+import { MonitorUp } from "lucide-react";
+import { Brand } from "../components/logo";
 import { redirect } from "next/navigation";
 import DeviceConnect from "./device-connect";
-
-function Logo() {
-  return (
-    <span className="logo" aria-label="Fling">
-      <Zap size={18} strokeWidth={2.5} />
-    </span>
-  );
-}
 
 export default async function DevicePage({
   searchParams,
@@ -28,10 +21,7 @@ export default async function DevicePage({
   return (
     <div className="app">
       <header className="site-header">
-        <a className="brand" href="/" aria-label="Fling home">
-          <Logo />
-          <span>Fling</span>
-        </a>
+        <Brand />
       </header>
       <main className="auth-shell device-shell">
         <section className="auth-panel reveal" aria-labelledby="device-title">

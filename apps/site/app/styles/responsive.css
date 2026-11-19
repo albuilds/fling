@@ -1,0 +1,123 @@
+/* Layout changes for smaller screens. */
+
+@media (max-width: 1080px) {
+  .scene-desktop {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-preview {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .overlay-preview {
+    min-height: 340px;
+  }
+
+  .detail-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .detail-panel {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .auth-shell,
+  .capture-band {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .auth-preview {
+    min-height: 420px;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .workflow-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .feature-card,
+  .feature-card + .feature-card {
+    padding: 28px 0;
+    border-left: 0;
+  }
+
+  .feature-card + .feature-card {
+    border-top: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 720px) {
+  .site-header {
+    grid-template-columns: auto 1fr;
+  }
+
+  /* Landing page section links; account pages keep their nav. */
+  .nav:has(a[href^="#"]) {
+    display: none;
+  }
+
+  .nav {
+    justify-self: end;
+  }
+
+  .site-header > .account-chip,
+  .site-header > .header-action {
+    display: none;
+  }
+
+  .header-login {
+    display: none;
+  }
+
+  .hero-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero-stats div + div {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .preview-label span {
+    display: none;
+  }
+
+  .capture-toolbar .ghost-action,
+  .capture-toolbar .option.disabled {
+    display: none;
+  }
+
+  .site-footer {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-actions .button {
+    flex: 1 1 100%;
+  }
+
+  .filter-tabs {
+    width: 100%;
+  }
+
+  .filter-tabs button {
+    flex: 1;
+    padding: 0 8px;
+  }
+
+  .expiry-box strong {
+    font-size: 52px;
+  }
+
+  .device-form input {
+    font-size: 24px;
+    letter-spacing: 0.2em;
+  }
+}

@@ -9,8 +9,8 @@ import {
   Link2,
   TimerReset,
   Trash2,
-  Zap,
 } from "lucide-react";
+import { Brand } from "../../components/logo";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -131,12 +131,7 @@ export default function CaptureDetailClient({ capture }: { capture: CaptureDetai
   return (
     <div className="app">
       <header className="site-header">
-        <a className="brand" href="/" aria-label="Fling home">
-          <span className="logo" aria-hidden="true">
-            <Zap size={18} strokeWidth={2.5} />
-          </span>
-          <span>Fling</span>
-        </a>
+        <Brand />
         <nav className="nav" aria-label="Primary navigation">
           <a href="/dashboard">Library</a>
           <button

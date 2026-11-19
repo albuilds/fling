@@ -1,0 +1,51 @@
+/*
+ * Design tokens. Fling is strictly black and white: dark mode is white on
+ * black, light mode is black on white. Grays are only used for secondary
+ * text and hairlines. Red appears only for destructive actions and errors.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #000;
+  --bg-raised: #0a0a0a;
+  --bg-sunken: #050505;
+  --line: #1c1c1c;
+  --line-strong: #2e2e2e;
+  --fg: #f4f4f2;
+  --fg-muted: #8f8f8c;
+  --fg-faint: #555553;
+  --inverse-bg: #f4f4f2;
+  --inverse-fg: #000;
+  --danger: #ff5a4f;
+  --grid-line: rgba(255, 255, 255, 0.045);
+
+  /* next/font sets --font-sans, --font-mono, and --font-display on <html>. */
+  --type-sans: var(--font-sans, system-ui), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --type-mono: var(--font-mono, ui-monospace), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --type-display: var(--font-display, Georgia), "Times New Roman", Georgia, serif;
+
+  --page-max: 1240px;
+  --gutter: clamp(18px, 4vw, 44px);
+  --header-height: 64px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --bg: #fff;
+    --bg-raised: #f7f7f5;
+    --bg-sunken: #fafaf9;
+    --line: #e6e6e3;
+    --line-strong: #cfcfcb;
+    --fg: #0a0a0a;
+    --fg-muted: #62625f;
+    --fg-faint: #a4a4a0;
+    --inverse-bg: #0a0a0a;
+    --inverse-fg: #fff;
+    --danger: #d4301f;
+    --grid-line: rgba(0, 0, 0, 0.05);
+  }
+}

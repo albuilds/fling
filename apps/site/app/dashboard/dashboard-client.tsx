@@ -10,8 +10,8 @@ import {
   MoreHorizontal,
   Search,
   TimerReset,
-  Zap,
 } from "lucide-react";
+import { Brand } from "../components/logo";
 
 type Capture = {
   id: string;
@@ -37,13 +37,6 @@ const filters: { label: string; value: Filter }[] = [
   { label: "Screenshots", value: "image" },
 ];
 
-function Logo() {
-  return (
-    <span className="logo" aria-label="Fling">
-      <Zap size={18} strokeWidth={2.5} />
-    </span>
-  );
-}
 
 function formatBytes(bytes: number) {
   if (bytes === 0) return "0 B";
@@ -160,10 +153,7 @@ export default function DashboardClient({
   return (
     <div className="app" onClick={() => openMenu && setOpenMenu(null)}>
       <header className="site-header">
-        <a className="brand" href="/" aria-label="Fling home">
-          <Logo />
-          <span>Fling</span>
-        </a>
+        <Brand />
         <nav className="nav" aria-label="Primary navigation">
           <a href="/dashboard">Library</a>
           <button
@@ -247,11 +237,16 @@ export default function DashboardClient({
             const format = capture.mimeType.split("/").pop()?.toUpperCase();
             const meta = [duration, format].filter(Boolean).join(" ");
             const contentUrl = `/api/captures/${encodeURIComponent(capture.publicId)}/content`;
+            const isExpired = Boolean(
+              capture.expiresAt && new Date(capture.expiresAt).getTime() <= Date.now(),
+            );
 
             return (
               <article className="capture-card reveal" key={capture.id}>
                 <a className="capture-thumb" href={`/dashboard/${capture.id}`}>
-                  {capture.type === "video" ? (
+                  {isExpired ? (
+                    <span className="capture-thumb-expired">Expired</span>
+                  ) : capture.type === "video" ? (
                     <video
                       aria-label={`${capture.title} preview`}
                       muted

@@ -1,16 +1,9 @@
 import { auth } from "@/auth";
 import { getSafeCallbackUrl } from "@/lib/safe-redirect";
-import { MonitorUp, Zap } from "lucide-react";
+import { MonitorUp } from "lucide-react";
+import { Brand } from "../components/logo";
 import { redirect } from "next/navigation";
 import { GoogleButton } from "./google-button";
-
-function Logo() {
-  return (
-    <span className="logo" aria-label="Fling">
-      <Zap size={18} strokeWidth={2.5} />
-    </span>
-  );
-}
 
 export default async function LoginPage({
   searchParams,
@@ -28,10 +21,7 @@ export default async function LoginPage({
   return (
     <div className="app">
       <header className="site-header">
-        <a className="brand" href="/" aria-label="Fling home">
-          <Logo />
-          <span>Fling</span>
-        </a>
+        <Brand />
       </header>
 
       <main className="auth-shell">

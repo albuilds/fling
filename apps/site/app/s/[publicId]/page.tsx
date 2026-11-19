@@ -1,6 +1,7 @@
 import { getAppOrigin } from "@/lib/app-url";
 import { prisma } from "@/lib/prisma";
-import { Download, Film, ImageIcon, TimerReset, Zap } from "lucide-react";
+import { Download, Film, ImageIcon, TimerReset } from "lucide-react";
+import { Brand } from "../../components/logo";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -167,12 +168,7 @@ export default async function SharePage({ params }: SharePageProps) {
   return (
     <div className="app">
       <header className="site-header">
-        <a className="brand" href="/" aria-label="Fling home">
-          <span className="logo" aria-hidden="true">
-            <Zap size={18} strokeWidth={2.5} />
-          </span>
-          <span>Fling</span>
-        </a>
+        <Brand />
         <nav className="nav" aria-label="Primary navigation">
           <a href="/login">Log in</a>
         </nav>

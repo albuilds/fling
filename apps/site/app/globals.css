@@ -1,11 +1,11 @@
 /*
- * Global styles, split by area. The import order matches the original single
- * file, so later rules still override earlier ones the same way.
+ * Global styles, split by area. Later files may override earlier ones, so
+ * keep this order.
  */
+@import "./styles/tokens.css";
 @import "./styles/base.css";
+@import "./styles/components.css";
 @import "./styles/landing.css";
 @import "./styles/auth.css";
 @import "./styles/library.css";
-@import "./styles/light-theme.css";
 @import "./styles/responsive.css";
-@import "./styles/dashboard-states.css";

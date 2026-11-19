@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import {
   ArrowRight,
+  ArrowUpRight,
   Check,
   Clipboard,
   Cloud,
@@ -9,11 +10,12 @@ import {
   MonitorUp,
   MousePointer2,
   Play,
-  Sparkles,
-  TimerReset,
-  Zap,
+  SlidersHorizontal,
 } from "lucide-react";
 import { redirect } from "next/navigation";
+import { Brand, LogoMark } from "./components/logo";
+
+const REPOSITORY_URL = "https://github.com/albuilds/fling";
 
 const workflowItems = [
   {
@@ -29,13 +31,13 @@ const workflowItems = [
   {
     icon: Film,
     title: "Record the same way",
-    body: "Use the same overlay model for short, focused screen recordings.",
+    body: "Use the same overlay for short, focused screen recordings.",
   },
 ];
 
 const previewSections = [
   {
-    icon: Sparkles,
+    icon: SlidersHorizontal,
     title: "After Capture",
     rows: [
       {
@@ -63,7 +65,7 @@ const previewSections = [
         value: "Ctrl Shift S",
       },
       {
-        title: "Record video / GIF",
+        title: "Record video",
         body: "Start or stop a screen recording",
         control: "shortcut",
         value: "Ctrl Shift R",
@@ -76,9 +78,9 @@ const previewSections = [
     rows: [
       {
         title: "Save local copy",
-        body: "Keep screenshots and recordings on this PC",
+        body: "Keep screenshots and recordings on this computer",
         control: "toggle",
-        enabled: true,
+        enabled: false,
       },
       {
         title: "Recording quality",
@@ -104,22 +106,14 @@ function PreviewControl({ row }: { row: PreviewRow }) {
   return <span className={row.enabled ? "toggle-on" : "toggle-off"} />;
 }
 
-function Logo() {
-  return (
-    <span className="logo" aria-label="Fling">
-      <Zap size={18} strokeWidth={2.5} />
-    </span>
-  );
-}
-
 function ProductScene() {
   return (
     <div className="scene reveal" aria-hidden="true">
       <div className="scene-window">
         <div className="scene-titlebar">
           <div className="scene-brand">
-            <Logo />
-            <span>Fling</span>
+            <LogoMark size={16} />
+            <span>fling</span>
           </div>
           <span className="scene-version">v0.1.0</span>
           <div className="scene-controls">
@@ -138,7 +132,7 @@ function ProductScene() {
                 return (
                   <section className="preview-section" key={section.title}>
                     <div className="preview-section-header">
-                      <Icon size={14} />
+                      <Icon size={13} />
                       {section.title}
                     </div>
                     {section.rows.map((row) => (
@@ -159,8 +153,8 @@ function ProductScene() {
                 <Check size={13} />
                 Settings saved
               </span>
-              <span className="footer-action ghost">Reset defaults</span>
-              <span className="footer-action primary">Save settings</span>
+              <span className="footer-action ghost">Reset</span>
+              <span className="footer-action primary">Save</span>
             </div>
           </div>
 
@@ -169,13 +163,14 @@ function ProductScene() {
             <div className="capture-region">
               <span className="crosshair horizontal" />
               <span className="crosshair vertical" />
+              <span className="region-size">1280 × 720</span>
             </div>
             <div className="capture-toolbar">
               <span className="option active">Copy</span>
               <span className="option active">Save</span>
               <span className="option disabled">Upload</span>
-              <span className="primary-action">Screenshot</span>
-              <span className="ghost-action">Cancel</span>
+              <span className="primary-action">Capture</span>
+              <span className="ghost-action">Esc</span>
             </div>
           </div>
         </div>
@@ -194,13 +189,10 @@ export default async function Home() {
   return (
     <div className="app">
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="Fling home">
-          <Logo />
-          <span>Fling</span>
-        </a>
+        <Brand href="#top" />
         <nav className="nav" aria-label="Primary navigation">
           <a href="#workflow">Workflow</a>
-          <a href="#capture">Capture</a>
+          <a href="#capture">Sharing</a>
           <a href="#download">Download</a>
         </nav>
         <div className="header-buttons">
@@ -208,7 +200,7 @@ export default async function Home() {
             Log in
           </a>
           <a className="header-action" href="#download">
-            <Download size={16} />
+            <Download size={15} />
             <span>Get Fling</span>
           </a>
         </div>
@@ -219,33 +211,28 @@ export default async function Home() {
           <div className="hero-layout">
             <div className="hero-content reveal">
               <p className="eyebrow">
-                <MonitorUp size={14} />
-                Screen capture for fast-moving work
+                <MonitorUp size={13} />
+                Desktop screen capture
               </p>
-              <h1 id="hero-title">Fling</h1>
+              <h1 id="hero-title">
+                Capture it.
+                <br />
+                <em>Fling it.</em>
+              </h1>
               <p className="hero-copy">
-                Capture screenshots, record focused clips, and keep every share
-                moving without breaking concentration.
+                Screenshots and short screen recordings from a keyboard
+                shortcut, saved to your computer or shared as a link that
+                expires on its own.
               </p>
               <div className="hero-actions" aria-label="Primary actions">
                 <a className="button primary" href="#download">
-                  <Download size={18} />
+                  <Download size={17} />
                   <span>Download app</span>
                 </a>
                 <a className="button secondary" href="#workflow">
-                  <Play size={18} />
-                  <span>See workflow</span>
+                  <Play size={17} />
+                  <span>See how it works</span>
                 </a>
-              </div>
-              <div className="hero-proof" aria-label="Product qualities">
-                <span>
-                  <Sparkles size={14} />
-                  Native desktop feel
-                </span>
-                <span>
-                  <TimerReset size={14} />
-                  Low-friction handoff
-                </span>
               </div>
             </div>
             <ProductScene />
@@ -253,30 +240,25 @@ export default async function Home() {
           <div className="hero-stats reveal" aria-label="Highlights">
             <div>
               <strong>Region</strong>
-              <span>Screenshot selection</span>
+              <span>Screenshot any part of the screen</span>
             </div>
             <div>
               <strong>Video</strong>
-              <span>Timed recordings</span>
+              <span>Timed recordings with audio</span>
             </div>
             <div>
-              <strong>Local</strong>
-              <span>Clipboard and files</span>
+              <strong>Links</strong>
+              <span>Shares expire after seven days</span>
             </div>
           </div>
         </section>
 
-        <section
-          className="workflow reveal"
-          id="workflow"
-          aria-labelledby="workflow-title"
-        >
+        <section className="workflow" id="workflow" aria-labelledby="workflow-title">
           <div className="section-heading reveal">
-            <p className="eyebrow">
-              <TimerReset size={14} />
-              Built around one clean motion
-            </p>
-            <h2 id="workflow-title">Capture, decide, move on.</h2>
+            <p className="eyebrow">How it works</p>
+            <h2 id="workflow-title">
+              Capture, decide, <em>move on.</em>
+            </h2>
           </div>
           <div className="workflow-grid">
             {workflowItems.map((item) => {
@@ -285,7 +267,7 @@ export default async function Home() {
               return (
                 <article className="feature-card reveal" key={item.title}>
                   <div className="feature-icon">
-                    <Icon size={20} />
+                    <Icon size={18} />
                   </div>
                   <h3>{item.title}</h3>
                   <p>{item.body}</p>
@@ -295,59 +277,54 @@ export default async function Home() {
           </div>
         </section>
 
-        <section
-          className="capture-band reveal"
-          id="capture"
-          aria-labelledby="capture-title"
-        >
+        <section className="capture-band" id="capture" aria-labelledby="capture-title">
           <div className="capture-copy reveal">
-            <p className="eyebrow">
-              <Cloud size={14} />
-              Ready for local-first sharing
-            </p>
+            <p className="eyebrow">Sharing</p>
             <h2 id="capture-title">
-              A desktop utility with web-ready momentum.
+              Local first. <em>Shareable when you want.</em>
             </h2>
             <p>
-              Fling keeps capture controls compact and predictable while
-              leaving room for upload, browser handoff, and link workflows as
-              the app grows.
+              Captures save to your computer by default. Connect the desktop app
+              to your account once, and uploads come back as a link that stops
+              working after seven days.
             </p>
           </div>
           <div className="capability-list">
             {[
-              "Keyboard-friendly screenshot and record overlays",
-              "Save locally or copy output without extra prompts",
-              "Settings that match real capture habits",
+              "Shortcuts for region, full screen, and recording",
+              "Save locally, copy to the clipboard, or upload",
+              "Share links expire automatically",
             ].map((item) => (
               <div className="capability reveal" key={item}>
-                <Check size={17} />
+                <Check size={16} />
                 <span>{item}</span>
               </div>
             ))}
           </div>
         </section>
 
-        <section
-          className="download reveal"
-          id="download"
-          aria-labelledby="download-title"
-        >
+        <section className="download reveal" id="download" aria-labelledby="download-title">
           <div>
-            <p className="eyebrow">
-              <Zap size={14} />
-              Start with the desktop app
-            </p>
+            <p className="eyebrow">Get started</p>
             <h2 id="download-title">
-              Fast capture, polished controls, no ceremony.
+              Fast capture, <em>no ceremony.</em>
             </h2>
           </div>
-          <a className="button primary" href="#">
-            <ArrowRight size={18} />
-            <span>Prepare download</span>
+          <a className="button primary" href={REPOSITORY_URL} target="_blank" rel="noreferrer">
+            <span>View on GitHub</span>
+            <ArrowUpRight size={17} />
           </a>
         </section>
       </main>
+
+      <footer className="site-footer">
+        <Brand href="#top" />
+        <span>MIT License</span>
+        <a href={REPOSITORY_URL} target="_blank" rel="noreferrer">
+          Source
+          <ArrowRight size={14} />
+        </a>
+      </footer>
     </div>
   );
 }
