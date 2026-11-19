@@ -98,6 +98,10 @@ export function createOverlayWindow(
     // macOS normally keeps windows below the menu bar; this lets the overlay
     // cover the full display so the top of the screen can be captured too.
     enableLargerThanScreen: true,
+    // Fling runs in the background, so the overlay is usually not the active
+    // app. Without this, macOS uses the first click only to activate the
+    // window and the button under the pointer does nothing.
+    acceptFirstMouse: true,
     webPreferences: SECURE_WEB_PREFERENCES,
   });
   hardenWindow(window);

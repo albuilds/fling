@@ -404,10 +404,27 @@ async function requestMicrophoneList() {
   return populateMicrophones();
 }
 
+/*
+ * While recording, the overlay passes clicks through to the apps below. The
+ * main process still forwards mouse movement, so when the pointer is over
+ * the timer, stop passing clicks through so its buttons can be pressed.
+ */
+let pointerOverTimer = false;
+
+function setPointerOverTimer(over) {
+  if (!isRecording || over === pointerOverTimer) return;
+  pointerOverTimer = over;
+  void window.flingVideo.setIgnoreMouseEvents(!over);
+}
+
+timer.addEventListener("mouseenter", () => setPointerOverTimer(true));
+timer.addEventListener("mouseleave", () => setPointerOverTimer(false));
+
 async function startRecording() {
   if (!selectedRect || isRecording || !selectedSaveLocally) return;
 
   isRecording = true;
+  pointerOverTimer = false;
   recordButton.disabled = true;
   setStatus("Preparing...");
   document.body.classList.add("recording");
