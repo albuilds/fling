@@ -19,19 +19,32 @@ Fling is a cross-platform screen-capture and sharing application built for fast 
 | Area                 | Technology                       |
 | -------------------- | -------------------------------- |
 | Desktop              | Electron, TypeScript, HTML/CSS   |
-| Web                  | Next.js 15, React, TypeScript    |
+| Web                  | Next.js 16, React, TypeScript    |
 | Authentication       | Auth.js / NextAuth, Google OAuth |
 | Database             | PostgreSQL, Prisma               |
 | Storage              | S3-compatible object storage     |
 | Local infrastructure | Docker Compose                   |
+| Testing and CI       | Vitest, GitHub Actions           |
 
 ## Project structure
 
 ```text
 fling/
+├── .github/workflows/  # CI: typecheck, tests, and builds
 ├── apps/
-│   ├── desktop/    # Electron capture client
-│   └── site/       # Next.js API, dashboard, and share pages
+│   ├── desktop/        # Electron capture client
+│   │   └── src/
+│   │       ├── main.ts     # Entry point
+│   │       ├── preload.ts  # The only API pages can call
+│   │       ├── app/        # Main process: windows, sign-in, uploads, capture
+│   │       ├── scripts/    # Page scripts
+│   │       ├── styles/     # Page styles
+│   │       └── *.html      # Page markup
+│   └── site/           # Next.js API, dashboard, and share pages
+│       ├── app/            # Routes, pages, and styles
+│       ├── lib/            # Shared server helpers
+│       ├── prisma/         # Database schema and migrations
+│       └── tests/          # Unit tests
 ├── LICENSE
 └── README.md
 ```
@@ -131,9 +144,13 @@ The desktop client uses `http://localhost:3000` by default. Set `FLING_API_URL` 
 
 ```bash
 npm --prefix apps/site run typecheck
+npm --prefix apps/site test
 npm --prefix apps/site run build
 npm --prefix apps/desktop run build
 ```
+
+GitHub Actions runs the same checks on every push to `main` and on pull
+requests.
 
 ## Expired capture cleanup
 
