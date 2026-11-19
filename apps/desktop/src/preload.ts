@@ -74,5 +74,6 @@ contextBridge.exposeInMainWorld("flingVideo", {
   setRecordingRegion: (rect: unknown) =>
     ipcRenderer.invoke("video-overlay:set-recording-region", rect),
   getScreenSource: () => ipcRenderer.invoke("video-overlay:get-source"),
-  saveRecording: (data: ArrayBuffer) => ipcRenderer.invoke("video-overlay:save", data),
+  saveRecording: (data: ArrayBuffer, durationMs: number) =>
+    ipcRenderer.invoke("video-overlay:save", data, durationMs),
 });

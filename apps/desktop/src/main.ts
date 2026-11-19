@@ -763,22 +763,32 @@ class FlingApp {
     ipcMain.handle("video-overlay:get-source", async () => {
       return this.getPrimaryScreenSourceInfo();
     });
-    ipcMain.handle("video-overlay:save", async (_event, data: ArrayBuffer) => {
-      const folder = path.join(app.getPath("documents"), "Fling Recordings");
-      await fs.mkdir(folder, { recursive: true });
+    ipcMain.handle(
+      "video-overlay:save",
+      async (_event, data: ArrayBuffer, durationMs: unknown) => {
+        const folder = path.join(app.getPath("documents"), "Fling Recordings");
+        await fs.mkdir(folder, { recursive: true });
 
-      const fileName = `fling-recording-${this.timestampForFileName()}.webm`;
-      const savedPath = path.join(folder, fileName);
-      const recording = Buffer.from(new Uint8Array(data));
-      await fs.writeFile(savedPath, recording);
-      await this.uploadCapture(
-        recording,
-        fileName,
-        "video/webm",
-        this.settings.recording.durationSeconds * 1000,
-      ).catch((error) => console.error("Could not upload recording", error));
-      return savedPath;
-    });
+        const fileName = `fling-recording-${this.timestampForFileName()}.webm`;
+        const savedPath = path.join(folder, fileName);
+        const recording = Buffer.from(new Uint8Array(data));
+        await fs.writeFile(savedPath, recording);
+        // Use the length the recorder measured. Fall back to the time limit only
+        // if the renderer did not send a usable value.
+        const maxDurationMs = this.settings.recording.durationSeconds * 1000;
+        const recordedDurationMs =
+          typeof durationMs === "number" && Number.isFinite(durationMs) && durationMs >= 0
+            ? Math.min(Math.round(durationMs), maxDurationMs)
+            : maxDurationMs;
+        await this.uploadCapture(
+          recording,
+          fileName,
+          "video/webm",
+          recordedDurationMs,
+        ).catch((error) => console.error("Could not upload recording", error));
+        return savedPath;
+      },
+    );
   }
 
   private async captureScreenshot(

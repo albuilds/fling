@@ -1187,6 +1187,7 @@
         let isStopping = false;
         let elapsedBeforePause = 0;
         let startedAt = 0;
+        let recordedDurationMs = 0;
 
         try {
           const source = await window.flingVideo.getScreenSource();
@@ -1285,6 +1286,11 @@
             isStopping = true;
             postStopAction = action;
             shouldSaveRecording = action === "save";
+            // Measure the real length (pauses excluded) before stopping, so a
+            // recording ended early is not reported as the full time limit.
+            recordedDurationMs = Math.round(
+              Math.min(getElapsedMs(), totalDurationMs),
+            );
             setRecordingControlsDisabled(true);
             clearTimeout(stopTimeout);
             recorder.stop();
@@ -1391,6 +1397,7 @@
               const blob = new Blob(chunks, { type: recorder.mimeType });
               const savedPath = await window.flingVideo.saveRecording(
                 await blob.arrayBuffer(),
+                recordedDurationMs,
               );
               await window.flingVideo.setIgnoreMouseEvents(false);
               await window.flingVideo.setRecordingRegion(null);
