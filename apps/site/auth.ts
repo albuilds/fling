@@ -28,7 +28,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     signIn({ user }) {
-      return isAllowedEmail(user.email);
+      const allowed = isAllowedEmail(user.email);
+      if (!allowed && process.env.NODE_ENV !== "production") {
+        // Helps debug ALLOWED_EMAILS locally; never logged in production.
+        console.warn(`[auth] Sign-in blocked by ALLOWED_EMAILS: ${user.email ?? "(no email)"}`);
+      }
+      return allowed;
     },
     session({ session, user }) {
       session.user.id = user.id;

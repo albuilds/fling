@@ -252,7 +252,8 @@ export default function DashboardClient({
                       muted
                       playsInline
                       preload="metadata"
-                      src={contentUrl}
+                      // Seek slightly in so browsers draw the first frame as a thumbnail.
+                      src={`${contentUrl}#t=0.1`}
                     />
                   ) : (
                     <img

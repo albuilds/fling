@@ -145,10 +145,6 @@ export default function CaptureDetailClient({ capture }: { capture: CaptureDetai
             {isSigningOut ? "Signing out..." : "Log out"}
           </button>
         </nav>
-        <a className="header-action" href="/dashboard">
-          <ArrowLeft size={16} />
-          <span>Back</span>
-        </a>
       </header>
 
       <main className="detail-shell">
