@@ -96,7 +96,7 @@ model Capture {
   id            String       @id @default(cuid())
   UserId        String
   deviceTokenId String?
-  publicId      String       @unique @default(cuid())
+  publicId      String       @unique
   type          CaptureType
   title         String
   mimeType      String

@@ -2,50 +2,23 @@ import { randomUUID } from "node:crypto";
 import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getAppOrigin } from "@/lib/app-url";
 import { authenticateDevice } from "@/lib/device-auth";
+import {
+  getMaxUploadBytes,
+  hasExpectedSignature,
+  MEDIA_EXTENSIONS,
+  parseDurationMs,
+  parseMediaType,
+  sanitizeTitle,
+} from "@/lib/media";
 import { prisma } from "@/lib/prisma";
 import { readRequestBody } from "@/lib/request-body";
 import { getS3Bucket, s3 } from "@/lib/s3";
+import { createShareId } from "@/lib/secrets";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const DEFAULT_MAX_UPLOAD_BYTES = 104_857_600;
-const MAX_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
-const FILE_EXTENSIONS: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "video/mp4": "mp4",
-  "video/webm": "webm",
-};
-
-function getMaxUploadBytes() {
-  const configured = Number(process.env.MAX_UPLOAD_BYTES);
-  return Number.isSafeInteger(configured) && configured > 0
-    ? configured
-    : DEFAULT_MAX_UPLOAD_BYTES;
-}
-
-function hasExpectedSignature(bytes: Buffer, mimeType: string) {
-  switch (mimeType) {
-    case "image/jpeg":
-      return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-    case "image/png":
-      return bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-    case "image/webp":
-      return (
-        bytes.length >= 12 &&
-        bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
-        bytes.subarray(8, 12).toString("ascii") === "WEBP"
-      );
-    case "video/mp4":
-      return bytes.length >= 12 && bytes.subarray(4, 8).toString("ascii") === "ftyp";
-    case "video/webm":
-      return bytes.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
-    default:
-      return false;
-  }
-}
+const SHARE_LINK_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function GET(request: Request) {
   const device = await authenticateDevice(request);
@@ -87,13 +60,14 @@ export async function POST(request: Request) {
   const device = await authenticateDevice(request);
   if (!device) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const mimeType =
-    request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() || "";
-  const extension = FILE_EXTENSIONS[mimeType];
+  const mimeType = parseMediaType(request.headers.get("content-type"));
+  const extension = MEDIA_EXTENSIONS[mimeType];
   if (!extension) {
     return NextResponse.json({ error: "unsupported_media_type" }, { status: 415 });
   }
 
+  // Reject obviously oversized uploads before reading the body. The header can
+  // be missing or wrong, so readRequestBody enforces the limit again below.
   const maxBytes = getMaxUploadBytes();
   const contentLength = request.headers.get("content-length")?.trim();
   if (contentLength !== undefined) {
@@ -120,23 +94,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_media" }, { status: 415 });
   }
 
-  const encodedTitle = request.headers.get("x-fling-title") || "Untitled capture";
-  let rawTitle = encodedTitle;
-  try {
-    rawTitle = decodeURIComponent(encodedTitle);
-  } catch {
-    // Keep the original header when it was not URI encoded.
-  }
-  const title =
-    rawTitle.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 180) ||
-    "Untitled capture";
+  const title = sanitizeTitle(request.headers.get("x-fling-title"));
   const captureType = mimeType.startsWith("video/") ? "VIDEO" : "SCREENSHOT";
-  const durationHeader = request.headers.get("x-fling-duration-ms");
-  const parsedDuration = durationHeader ? Number(durationHeader) : null;
-  const durationMs =
-    captureType === "VIDEO" && parsedDuration !== null && Number.isFinite(parsedDuration)
-      ? Math.min(MAX_DURATION_MS, Math.max(0, Math.round(parsedDuration)))
-      : null;
+  const durationMs = parseDurationMs(
+    request.headers.get("x-fling-duration-ms"),
+    captureType === "VIDEO",
+  );
   const storageKey = `captures/${device.UserId}/${randomUUID()}.${extension}`;
 
   await s3.send(
@@ -155,17 +118,20 @@ export async function POST(request: Request) {
       data: {
         UserId: device.UserId,
         deviceTokenId: device.id,
+        publicId: createShareId(),
         type: captureType,
         title,
         mimeType,
         storageKey,
         byteSize: BigInt(bytes.length),
         durationMs,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + SHARE_LINK_LIFETIME_MS),
       },
       select: { id: true, publicId: true, createdAt: true, expiresAt: true },
     });
   } catch (error) {
+    // The file is already in storage but has no database row, so nothing
+    // could ever serve or clean it up. Remove it before reporting the error.
     await s3
       .send(new DeleteObjectCommand({ Bucket: getS3Bucket(), Key: storageKey }))
       .catch((cleanupError) =>

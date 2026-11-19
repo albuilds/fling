@@ -1,5 +1,5 @@
 import { getAppOrigin } from "@/lib/app-url";
-import { createSecret, createUserCode, hashSecret } from "@/lib/device-auth";
+import { createSecret, createUserCode, hashSecret } from "@/lib/secrets";
 import { prisma } from "@/lib/prisma";
 import { readSmallJsonObject } from "@/lib/request-body";
 import { NextResponse } from "next/server";

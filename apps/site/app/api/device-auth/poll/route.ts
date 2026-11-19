@@ -1,4 +1,4 @@
-import { createSecret, hashSecret } from "@/lib/device-auth";
+import { createSecret, hashSecret } from "@/lib/secrets";
 import { prisma } from "@/lib/prisma";
 import { readSmallJsonObject } from "@/lib/request-body";
 import { NextResponse } from "next/server";

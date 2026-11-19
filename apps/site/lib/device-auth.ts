@@ -1,24 +1,20 @@
-import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { hashSecret } from "@/lib/secrets";
 
-export function hashSecret(secret: string) {
-  return createHash("sha256").update(secret).digest("hex");
-}
+const BEARER_TOKEN_PATTERN = /^Bearer ([A-Za-z0-9_-]{32,256})$/i;
 
-export function createSecret(bytes = 32) {
-  return randomBytes(bytes).toString("base64url");
-}
-
-export function createUserCode() {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = randomBytes(8);
-  const code = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
-  return `${code.slice(0, 4)}-${code.slice(4)}`;
-}
-
-export async function authenticateDevice(request: Request) {
+/** Extracts the raw token from an `Authorization: Bearer ...` header. */
+export function getBearerToken(request: Request) {
   const authorization = request.headers.get("authorization");
-  const token = authorization?.match(/^Bearer ([A-Za-z0-9_-]{32,256})$/i)?.[1];
+  return authorization?.match(BEARER_TOKEN_PATTERN)?.[1] ?? null;
+}
+
+/**
+ * Looks up the desktop device that sent this request. Only the SHA-256 hash
+ * of each token is stored, so the raw token is hashed before the lookup.
+ */
+export async function authenticateDevice(request: Request) {
+  const token = getBearerToken(request);
   if (!token) return null;
 
   return prisma.deviceToken.findFirst({

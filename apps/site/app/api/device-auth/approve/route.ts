@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { readSmallJsonObject } from "@/lib/request-body";
+import { normalizeUserCode } from "@/lib/secrets";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -13,15 +14,11 @@ export async function POST(request: Request) {
   if (!body) {
     return NextResponse.json({ error: "invalid_or_expired_code" }, { status: 400 });
   }
-  const compactCode =
-    typeof body.userCode === "string"
-      ? body.userCode.toUpperCase().replace(/[-\s]/g, "")
-      : "";
-  if (!/^[A-HJ-NP-Z2-9]{8}$/.test(compactCode)) {
+  const userCode = normalizeUserCode(body.userCode);
+  if (!userCode) {
     return NextResponse.json({ error: "invalid_or_expired_code" }, { status: 400 });
   }
 
-  const userCode = `${compactCode.slice(0, 4)}-${compactCode.slice(4)}`;
   const authorization = await prisma.deviceAuthorization.findUnique({
     where: { userCode },
   });
