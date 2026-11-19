@@ -41,10 +41,15 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+const IS_MAC = /Mac/i.test(navigator.platform || navigator.userAgent);
+
+/** How a key in an Electron accelerator is labeled on this platform. */
 function toDisplayKey(key) {
-  if (key === "CommandOrControl") return "Ctrl";
-  if (key === "Command") return "Cmd";
-  if (key === "Control") return "Ctrl";
+  if (key === "CommandOrControl" || key === "CmdOrCtrl") return IS_MAC ? "⌘" : "Ctrl";
+  if (key === "Command" || key === "Cmd") return "⌘";
+  if (key === "Control" || key === "Ctrl") return IS_MAC ? "⌃" : "Ctrl";
+  if (key === "Alt" || key === "Option") return IS_MAC ? "⌥" : "Alt";
+  if (key === "Shift") return IS_MAC ? "⇧" : "Shift";
   return key;
 }
 
@@ -63,7 +68,8 @@ function renderShortcut(id) {
   }
   const content = document.createDocumentFragment();
   keys.forEach((key, index) => {
-    if (index > 0) content.append(document.createTextNode("+"));
+    // Mac shortcuts read as ⌘⇧S, other platforms as Ctrl+Shift+S.
+    if (index > 0 && !IS_MAC) content.append(document.createTextNode("+"));
     const keyElement = document.createElement("span");
     keyElement.className = "key";
     keyElement.textContent = key;
@@ -79,6 +85,11 @@ function normalizeKey(event) {
   return event.key.length === 1 ? event.key.toUpperCase() : event.key;
 }
 
+/**
+ * Turns a key press into an Electron accelerator. Returns null while only
+ * modifiers are held, and "needs-modifier" for a bare key: global shortcuts
+ * without Cmd/Ctrl or Option/Alt would steal that key from every other app.
+ */
 function shortcutFromEvent(event) {
   const ignored = ["Control", "Alt", "Shift", "Meta"];
   if (ignored.includes(event.key)) return null;
@@ -88,7 +99,26 @@ function shortcutFromEvent(event) {
   if (event.altKey) mods.push("Alt");
   if (event.shiftKey) mods.push("Shift");
 
+  const hasMainModifier = event.ctrlKey || event.metaKey || event.altKey;
+  if (!hasMainModifier) return "needs-modifier";
+
   return [...mods, normalizeKey(event)].join("+");
+}
+
+/** Names of shortcuts that share the same key combination. */
+function findDuplicateShortcuts() {
+  const labels = {
+    captureRegion: "Capture region",
+    captureFullscreen: "Capture full screen",
+    recordVideo: "Record video",
+  };
+  const seen = new Map();
+  for (const [id, accelerator] of Object.entries(shortcuts)) {
+    if (!accelerator) continue;
+    if (seen.has(accelerator)) return [labels[seen.get(accelerator)], labels[id]];
+    seen.set(accelerator, id);
+  }
+  return null;
 }
 
 function applySettings(nextSettings) {
@@ -129,6 +159,8 @@ function applySettings(nextSettings) {
     settings.afterCapture.showNotification;
   document.getElementById("copyScreenshot").checked =
     settings.screenshot.copyToClipboard;
+  document.getElementById("uploadScreenshot").checked =
+    settings.screenshot.uploadToServer;
   document.getElementById("saveLocal").checked =
     settings.screenshot.saveLocally && settings.recording.saveLocally;
   document.getElementById("recordDuration").value = String(
@@ -160,7 +192,7 @@ function readSettingsFromForm() {
     screenshot: {
       copyToClipboard: document.getElementById("copyScreenshot").checked,
       saveLocally,
-      uploadToServer: false,
+      uploadToServer: document.getElementById("uploadScreenshot").checked,
     },
     recording: {
       saveLocally,
@@ -228,33 +260,42 @@ document.querySelectorAll(".shortcut-input").forEach((el) => {
   });
 });
 
+function stopRecordingShortcut() {
+  if (!recording) return;
+  const id = recording;
+  recording = null;
+  document
+    .querySelector(`.shortcut-input[data-id="${id}"]`)
+    ?.classList.remove("recording");
+  renderShortcut(id);
+}
+
 document.addEventListener("keydown", (e) => {
   if (!recording) return;
   e.preventDefault();
 
+  // Escape cancels and keeps the previous shortcut.
+  if (e.key === "Escape") {
+    stopRecordingShortcut();
+    return;
+  }
+
   const shortcut = shortcutFromEvent(e);
   if (!shortcut) return;
+  if (shortcut === "needs-modifier") {
+    const el = document.querySelector(`.shortcut-input[data-id="${recording}"]`);
+    el.textContent = IS_MAC ? "Add ⌘ or ⌥…" : "Add Ctrl or Alt…";
+    return;
+  }
 
   shortcuts[recording] = shortcut;
-
-  const el = document.querySelector(
-    `.shortcut-input[data-id="${recording}"]`,
-  );
-  el.classList.remove("recording");
-  recording = null;
+  stopRecordingShortcut();
   Object.keys(shortcuts).forEach(renderShortcut);
 });
 
 document.addEventListener("click", (e) => {
   if (!recording) return;
-  if (!e.target.classList.contains("shortcut-input")) {
-    const el = document.querySelector(
-      `.shortcut-input[data-id="${recording}"]`,
-    );
-    el?.classList.remove("recording");
-    renderShortcut(recording);
-    recording = null;
-  }
+  if (!e.target.closest(".shortcut-input")) stopRecordingShortcut();
 });
 
 // Clear buttons
@@ -267,11 +308,18 @@ document.querySelectorAll("[data-clear]").forEach((btn) => {
 });
 
 // Reset defaults
-function showSavedStatus(message = "Settings saved") {
+let saveStatusTimer = 0;
+
+function showSavedStatus(message = "Settings saved", isError = false) {
   const status = document.getElementById("saveStatus");
   status.textContent = message;
+  status.classList.toggle("error", isError);
   status.classList.add("visible");
-  setTimeout(() => status.classList.remove("visible"), 2500);
+  clearTimeout(saveStatusTimer);
+  saveStatusTimer = setTimeout(
+    () => status.classList.remove("visible"),
+    isError ? 5000 : 2500,
+  );
 }
 
 document.getElementById("resetBtn").addEventListener("click", async () => {
@@ -282,12 +330,24 @@ document.getElementById("resetBtn").addEventListener("click", async () => {
 });
 
 document.getElementById("saveBtn").addEventListener("click", async () => {
-  const requestedSettings = readSettingsFromForm();
-  const nextSettings =
-    (await window.flingSettings?.save?.(requestedSettings)) ??
-    requestedSettings;
-  applySettings(nextSettings);
-  showSavedStatus();
+  stopRecordingShortcut();
+  const duplicate = findDuplicateShortcuts();
+  if (duplicate) {
+    showSavedStatus(`${duplicate[0]} and ${duplicate[1]} use the same shortcut`, true);
+    return;
+  }
+
+  try {
+    const requestedSettings = readSettingsFromForm();
+    const nextSettings =
+      (await window.flingSettings?.save?.(requestedSettings)) ??
+      requestedSettings;
+    applySettings(nextSettings);
+    showSavedStatus();
+  } catch (error) {
+    console.error("Could not save settings", error);
+    showSavedStatus("Could not save settings", true);
+  }
 });
 
 window.addEventListener("DOMContentLoaded", async () => {

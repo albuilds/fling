@@ -128,10 +128,14 @@
 
 .shortcut-input .key {
   display: inline-block;
+  min-width: 22px;
   margin: 0 1px;
   padding: 1px 6px;
   border: 1px solid var(--border-strong);
-  font-size: 11px;
+  /* The system font has proper ⌘ ⇧ ⌥ symbols; the mono font draws them tiny. */
+  font-family: -apple-system, "Segoe UI", var(--font);
+  font-size: 12px;
+  text-align: center;
 }
 
 .btn-clear {
@@ -275,4 +279,13 @@
 
 .save-status.visible {
   opacity: 1;
+}
+
+.save-status.error {
+  color: var(--danger);
+}
+
+.save-status.error::before {
+  content: "! ";
+  color: var(--danger);
 }
