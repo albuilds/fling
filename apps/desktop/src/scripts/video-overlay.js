@@ -4,20 +4,6 @@ const toolbar = document.getElementById("toolbar");
 const status = document.getElementById("status");
 const recordButton = document.getElementById("recordButton");
 const cancelButton = document.getElementById("cancelButton");
-const timer = document.getElementById("timer");
-const timerProgress = document.getElementById("timerProgress");
-const timerText = document.getElementById("timerText");
-const discardRecordingButton = document.getElementById(
-  "discardRecordingButton",
-);
-const redoRecordingButton = document.getElementById("redoRecordingButton");
-const pauseRecordingButton = document.getElementById(
-  "pauseRecordingButton",
-);
-const pauseRecordingIcon = document.getElementById("pauseRecordingIcon");
-const finishRecordingButton = document.getElementById(
-  "finishRecordingButton",
-);
 const saveLocalButton = document.getElementById("saveLocalButton");
 const systemAudioButton = document.getElementById("systemAudioButton");
 const microphoneButton = document.getElementById("microphoneButton");
@@ -45,6 +31,8 @@ let includeMicrophone = false;
 let selectedMicrophoneId = "";
 let isRecording = false;
 let activeRecording = null;
+let isLoadingSettings = true;
+let isCheckingMicrophone = false;
 
 const DEFAULT_RECORDING_SETTINGS = {
   saveLocally: true,
@@ -61,6 +49,8 @@ function clamp(value, min, max) {
 }
 
 function getRect(currentX, currentY) {
+  currentX = clamp(currentX, 0, window.innerWidth);
+  currentY = clamp(currentY, 0, window.innerHeight);
   const left = Math.min(startX, currentX);
   const top = Math.min(startY, currentY);
   const width = Math.abs(currentX - startX);
@@ -103,71 +93,6 @@ function playRecordSound() {
   recordSound.play().catch(() => {});
 }
 
-function setTimer(secondsRemaining, progress) {
-  timerText.textContent = `${secondsRemaining}s`;
-  timerProgress.style.transform = `scaleX(${progress})`;
-  timer.classList.add("visible");
-}
-
-function setTimerPaused(secondsRemaining, progress) {
-  timerText.textContent = `Paused ${secondsRemaining}s`;
-  timerProgress.style.transform = `scaleX(${progress})`;
-  timer.classList.add("visible");
-}
-
-function setTimerSaved() {
-  timerText.textContent = "Saved";
-  timerProgress.style.transform = "scaleX(1)";
-  timer.classList.add("visible");
-}
-
-function setRecordingControlsDisabled(disabled) {
-  discardRecordingButton.disabled = disabled;
-  redoRecordingButton.disabled = disabled;
-  pauseRecordingButton.disabled = disabled;
-  finishRecordingButton.disabled = disabled;
-}
-
-function setPauseControlPaused(paused) {
-  pauseRecordingIcon.classList.toggle("icon-pause", !paused);
-  pauseRecordingIcon.classList.toggle("icon-play", paused);
-  pauseRecordingButton.setAttribute(
-    "aria-label",
-    paused ? "Resume recording" : "Pause recording",
-  );
-  pauseRecordingButton.title = paused ? "Resume recording" : "Pause recording";
-}
-
-function getTimerPosition(rect) {
-  const gap = 10;
-  timer.classList.add("visible");
-
-  const timerRect = timer.getBoundingClientRect();
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const below = rect.top + rect.height + gap;
-  const above = rect.top - timerRect.height - gap;
-  const top =
-    below + timerRect.height <= viewportHeight
-      ? below
-      : Math.max(gap, above);
-  const centeredLeft = rect.left + rect.width / 2 - timerRect.width / 2;
-
-  return {
-    left: clamp(centeredLeft, gap, viewportWidth - timerRect.width - gap),
-    top: clamp(top, gap, viewportHeight - timerRect.height - gap),
-    width: timerRect.width,
-    height: timerRect.height,
-  };
-}
-
-function setTimerPosition(rect) {
-  const position = getTimerPosition(rect);
-  timer.style.left = `${position.left}px`;
-  timer.style.top = `${position.top}px`;
-  return position;
-}
-
 function getBitsPerSecond() {
   const megapixels = (selectedRect.width * selectedRect.height) / 1000000;
   const qualityMultipliers = {
@@ -204,47 +129,28 @@ function getRecorderOptions(hasAudio) {
   return mimeType ? { ...options, mimeType } : options;
 }
 
-function getDesktopCaptureConstraints(source, captureAudio) {
-  const videoMandatory = {
-    chromeMediaSource: "desktop",
-    chromeMediaSourceId: source.id,
-    minWidth: source.width,
-    maxWidth: source.width,
-    minHeight: source.height,
-    maxHeight: source.height,
-    maxFrameRate: selectedFps,
-  };
-
-  return {
-    audio: captureAudio
-      ? {
-          mandatory: {
-            chromeMediaSource: "desktop",
-          },
-        }
-      : false,
+async function getDesktopStream(sourceId) {
+  const constraints = {
+    audio: includeSystemAudio ? { mandatory: { chromeMediaSource: "desktop" } } : false,
     video: {
-      mandatory: videoMandatory,
+      mandatory: {
+        chromeMediaSource: "desktop",
+        chromeMediaSourceId: sourceId,
+        maxFrameRate: selectedFps,
+      },
     },
   };
-}
-
-async function getDesktopStream(source) {
-  if (!includeSystemAudio) {
-    return navigator.mediaDevices.getUserMedia(
-      getDesktopCaptureConstraints(source, false),
-    );
-  }
 
   try {
-    return await navigator.mediaDevices.getUserMedia(
-      getDesktopCaptureConstraints(source, true),
-    );
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    if (includeSystemAudio && !stream.getAudioTracks().some((track) => track.readyState === "live")) {
+      stopStream(stream);
+      throw new Error("System audio did not provide a live track");
+    }
+    return stream;
   } catch (error) {
-    console.warn("Could not capture PC audio:", error);
-    return navigator.mediaDevices.getUserMedia(
-      getDesktopCaptureConstraints(source, false),
-    );
+    if (!includeSystemAudio) throw error;
+    throw new Error("System audio unavailable. Turn off PC audio to record without it.", { cause: error });
   }
 }
 
@@ -267,7 +173,11 @@ function getMicrophoneConstraints() {
 
 async function getMicrophoneStream() {
   if (!includeMicrophone) return null;
-  return navigator.mediaDevices.getUserMedia(getMicrophoneConstraints());
+  try {
+    return await navigator.mediaDevices.getUserMedia(getMicrophoneConstraints());
+  } catch (error) {
+    throw new Error("Microphone unavailable. Check access or turn off Mic.", { cause: error });
+  }
 }
 
 function addMixedAudioTracks(recordingStream, audioStreams) {
@@ -315,7 +225,7 @@ function updateAudioControls() {
 function updateSaveLocalControl() {
   saveLocalButton.classList.toggle("active", selectedSaveLocally);
   saveLocalButton.setAttribute("aria-pressed", String(selectedSaveLocally));
-  recordButton.disabled = !selectedSaveLocally;
+  recordButton.disabled = isLoadingSettings || isCheckingMicrophone || isRecording || !selectedSaveLocally;
 
   if (!selectedSaveLocally) {
     setStatus("Enable Save to keep a local recording");
@@ -404,97 +314,78 @@ async function requestMicrophoneList() {
   return populateMicrophones();
 }
 
-/*
- * While recording, the overlay passes clicks through to the apps below. The
- * main process still forwards mouse movement, so when the pointer is over
- * the timer, stop passing clicks through so its buttons can be pressed.
- */
-let pointerOverTimer = false;
+const videoControls = window.flingVideo;
 
-function setPointerOverTimer(over) {
-  if (!isRecording || over === pointerOverTimer) return;
-  pointerOverTimer = over;
-  void window.flingVideo.setIgnoreMouseEvents(!over);
+function updateTimer(label, progress, { paused = false, canCancel = true, canControl = false } = {}) {
+  videoControls.updateTimer({ label, progress, paused, canCancel, canControl });
 }
 
-timer.addEventListener("mouseenter", () => setPointerOverTimer(true));
-timer.addEventListener("mouseleave", () => setPointerOverTimer(false));
+async function restoreSelection(message) {
+  await videoControls.reset();
+  activeRecording = null;
+  isRecording = false;
+  document.body.classList.remove("recording");
+  setToolbarPosition(selectedRect);
+  updateSaveLocalControl();
+  setStatus(message);
+}
 
-async function startRecording() {
-  if (!selectedRect || isRecording || !selectedSaveLocally) return;
-
+async function startRecording(sourceId) {
   isRecording = true;
-  pointerOverTimer = false;
   recordButton.disabled = true;
-  setStatus("Preparing...");
   document.body.classList.add("recording");
-  setTimer(selectedDuration, 1);
-  const timerRect = setTimerPosition(selectedRect);
-  setRecordingControlsDisabled(true);
-  setPauseControlPaused(false);
-  await window.flingVideo.setRecordingRegion({
-    selection: selectedRect,
-    timer: timerRect,
-  });
-  await window.flingVideo.setIgnoreMouseEvents(true);
 
-  let desktopStream = null;
-  let microphoneStream = null;
-  let croppedStream = null;
-  let audioMixer = null;
-  let animationFrame = 0;
-  let timerAnimationFrame = 0;
+  let desktopStream;
+  let microphoneStream;
+  let croppedStream;
+  let audioMixer;
+  const video = document.createElement("video");
+  let videoFrame = 0;
+  let timerInterval = 0;
   let stopTimeout = 0;
-  let shouldSaveRecording = true;
-  let postStopAction = "save";
-  let isPaused = false;
-  let isStopping = false;
-  let elapsedBeforePause = 0;
-  let startedAt = 0;
-  let recordedDurationMs = 0;
+
+  async function releaseMedia() {
+    video.cancelVideoFrameCallback(videoFrame);
+    clearInterval(timerInterval);
+    clearTimeout(stopTimeout);
+    video.pause();
+    video.srcObject = null;
+    stopStream(desktopStream);
+    stopStream(microphoneStream);
+    stopStream(croppedStream);
+    await closeAudioMixer(audioMixer).catch(console.warn);
+  }
 
   try {
-    const source = await window.flingVideo.getScreenSource();
-    const streamResults = await Promise.allSettled([
-      getDesktopStream(source),
+    sourceId ??= await videoControls.start(selectedRect);
+    const [desktop, microphone] = await Promise.allSettled([
+      getDesktopStream(sourceId),
       getMicrophoneStream(),
     ]);
+    if (desktop.status === "fulfilled") desktopStream = desktop.value;
+    if (microphone.status === "fulfilled") microphoneStream = microphone.value;
+    if (desktop.status === "rejected") throw desktop.reason;
+    if (microphone.status === "rejected") throw microphone.reason;
 
-    if (streamResults[0].status === "fulfilled") {
-      desktopStream = streamResults[0].value;
-    }
-    if (streamResults[1].status === "fulfilled") {
-      microphoneStream = streamResults[1].value;
-    }
-
-    const streamError = streamResults.find(
-      (result) => result.status === "rejected",
-    );
-    if (streamError) throw streamError.reason;
-
-    const video = document.createElement("video");
     video.muted = true;
     video.srcObject = desktopStream;
     await video.play();
 
     const scaleX = video.videoWidth / window.innerWidth;
     const scaleY = video.videoHeight / window.innerHeight;
-    const crop = {
-      x: Math.round(selectedRect.left * scaleX),
-      y: Math.round(selectedRect.top * scaleY),
-      width: Math.round(selectedRect.width * scaleX),
-      height: Math.round(selectedRect.height * scaleY),
-    };
+    const x = Math.round(selectedRect.left * scaleX);
+    const y = Math.round(selectedRect.top * scaleY);
+    const cropWidth = Math.round((selectedRect.left + selectedRect.width) * scaleX) - x;
+    const cropHeight = Math.round((selectedRect.top + selectedRect.height) * scaleY) - y;
+    if (cropWidth <= 0 || cropHeight <= 0) throw new Error("The selected region is too small");
 
     const canvas = document.createElement("canvas");
-    canvas.width = crop.width;
-    canvas.height = crop.height;
+    canvas.width = cropWidth;
+    canvas.height = cropHeight;
     const context = canvas.getContext("2d");
     croppedStream = canvas.captureStream(selectedFps);
-    audioMixer = addMixedAudioTracks(croppedStream, [
-      desktopStream,
-      microphoneStream,
-    ]);
+    audioMixer = addMixedAudioTracks(croppedStream, [desktopStream, microphoneStream]);
+    if (audioMixer?.audioContext.state === "suspended") await audioMixer.audioContext.resume();
 
     const recorder = new MediaRecorder(
       croppedStream,
@@ -502,254 +393,135 @@ async function startRecording() {
     );
     const chunks = [];
     const totalDurationMs = selectedDuration * 1000;
+    let postStopAction = "save";
+    let isPaused = false;
+    let isStopping = false;
+    let elapsedBeforePause = 0;
+    let startedAt = 0;
+    let recordedDurationMs = 0;
+    let recorderError;
 
     function drawFrame() {
-      context.drawImage(
-        video,
-        crop.x,
-        crop.y,
-        crop.width,
-        crop.height,
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      );
-      animationFrame = requestAnimationFrame(drawFrame);
+      context.drawImage(video, x, y, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+      videoFrame = video.requestVideoFrameCallback(drawFrame);
     }
 
-    function getElapsedMs(now = performance.now()) {
-      if (isPaused) return elapsedBeforePause;
-      return elapsedBeforePause + now - startedAt;
+    function getElapsedMs() {
+      return elapsedBeforePause + (isPaused ? 0 : performance.now() - startedAt);
     }
 
-    function getRemainingMs(now = performance.now()) {
-      return Math.max(
-        totalDurationMs - Math.min(getElapsedMs(now), totalDurationMs),
-        0,
-      );
+    function getRemainingMs() {
+      return Math.max(0, totalDurationMs - getElapsedMs());
     }
 
-    function scheduleAutoStop() {
-      clearTimeout(stopTimeout);
+    function updateTimeRemaining() {
       const remainingMs = getRemainingMs();
-
-      if (remainingMs <= 0) {
-        stopRecording("save");
-        return;
-      }
-
-      stopTimeout = setTimeout(() => {
-        stopRecording("save");
-      }, remainingMs);
+      const label = `${isPaused ? "Paused " : ""}${Math.ceil(remainingMs / 1000)}s`;
+      updateTimer(label, remainingMs / totalDurationMs, { paused: isPaused, canControl: true });
     }
 
     function stopRecording(action) {
       if (isStopping || recorder.state === "inactive") return;
-
       isStopping = true;
       postStopAction = action;
-      shouldSaveRecording = action === "save";
-      // Measure the real length (pauses excluded) before stopping, so a
-      // recording ended early is not reported as the full time limit.
-      recordedDurationMs = Math.round(
-        Math.min(getElapsedMs(), totalDurationMs),
-      );
-      setRecordingControlsDisabled(true);
+      recordedDurationMs = Math.round(Math.min(getElapsedMs(), totalDurationMs));
+      clearInterval(timerInterval);
       clearTimeout(stopTimeout);
+      const label = action === "save" ? "Saving…" : action === "redo" ? "Restarting…" : "Cancelling…";
+      updateTimer(label, 0, { canCancel: false });
       recorder.stop();
     }
 
-    function pauseRecording() {
-      if (isStopping || isPaused || recorder.state !== "recording") return;
-
-      elapsedBeforePause = getElapsedMs();
-      isPaused = true;
-      clearTimeout(stopTimeout);
-      cancelAnimationFrame(timerAnimationFrame);
-      recorder.pause();
-
-      const remainingMs = getRemainingMs();
-      setPauseControlPaused(true);
-      setTimerPaused(
-        Math.ceil(remainingMs / 1000),
-        remainingMs / totalDurationMs,
-      );
+    function runTimer() {
+      updateTimeRemaining();
+      timerInterval = setInterval(updateTimeRemaining, 100);
+      stopTimeout = setTimeout(() => stopRecording("save"), getRemainingMs());
     }
 
-    function resumeRecording() {
-      if (isStopping || !isPaused || recorder.state !== "paused") return;
-
-      recorder.resume();
-      isPaused = false;
-      startedAt = performance.now();
-      setPauseControlPaused(false);
-      scheduleAutoStop();
-      timerAnimationFrame = requestAnimationFrame(updateTimerFrame);
-    }
-
-    function togglePauseRecording() {
-      if (isPaused) {
-        resumeRecording();
-      } else {
-        pauseRecording();
-      }
-    }
-
-    function updateTimerFrame(now) {
-      const remainingMs = getRemainingMs(now);
-      const remainingSeconds = Math.ceil(remainingMs / 1000);
-      const progress = remainingMs / totalDurationMs;
-
-      setTimer(remainingSeconds, progress);
-
-      if (remainingMs <= 0) {
-        stopRecording("save");
-        return;
-      }
-
-      if (!isPaused && recorder.state !== "inactive") {
-        timerAnimationFrame = requestAnimationFrame(updateTimerFrame);
+    function togglePause() {
+      if (isStopping) return;
+      if (recorder.state === "recording") {
+        recorder.pause();
+        elapsedBeforePause = getElapsedMs();
+        isPaused = true;
+        clearInterval(timerInterval);
+        clearTimeout(stopTimeout);
+        updateTimeRemaining();
+      } else if (recorder.state === "paused") {
+        recorder.resume();
+        isPaused = false;
+        startedAt = performance.now();
+        runTimer();
       }
     }
 
     recorder.addEventListener("dataavailable", (event) => {
-      if (event.data.size > 0) {
-        chunks.push(event.data);
-      }
+      if (event.data.size > 0) chunks.push(event.data);
     });
-
+    recorder.addEventListener("error", (event) => {
+      recorderError = event.error ?? new Error("MediaRecorder failed");
+    });
     recorder.addEventListener("stop", async () => {
-      cancelAnimationFrame(animationFrame);
-      cancelAnimationFrame(timerAnimationFrame);
-      clearTimeout(stopTimeout);
-      stopStream(desktopStream);
-      stopStream(microphoneStream);
-      stopStream(croppedStream);
-      await closeAudioMixer(audioMixer).catch((error) =>
-        console.warn("Could not close audio mixer:", error),
-      );
+      if (!isStopping) {
+        recordedDurationMs = Math.round(Math.min(getElapsedMs(), totalDurationMs));
+        updateTimer("Saving…", 0, { canCancel: false });
+      }
+      await releaseMedia();
 
-      if (!shouldSaveRecording) {
-        await window.flingVideo.setIgnoreMouseEvents(false);
-        await window.flingVideo.setRecordingRegion(null);
+      if (postStopAction === "close") {
+        videoControls.closeOverlay();
+        return;
+      }
+      if (postStopAction === "redo") {
         activeRecording = null;
-        isRecording = false;
-        setPauseControlPaused(false);
-        setRecordingControlsDisabled(false);
-
-        if (postStopAction === "close") {
-          window.flingVideo.closeOverlay();
-          return;
-        }
-
-        document.body.classList.remove("recording");
-        timer.classList.remove("visible");
-        recordButton.disabled = false;
-
-        if (postStopAction === "redo") {
-          toolbar.classList.remove("visible");
-          setStatus("Restarting...");
-          startRecording().catch(handleRecordingStartError);
-        }
-
+        updateTimer("Restarting…", 1);
+        await startRecording(sourceId);
         return;
       }
 
       try {
-        setTimer(0, 0);
+        if (recorderError) throw recorderError;
         const blob = new Blob(chunks, { type: recorder.mimeType });
-        const savedPath = await window.flingVideo.saveRecording(
-          await blob.arrayBuffer(),
-          recordedDurationMs,
-        );
-        await window.flingVideo.setIgnoreMouseEvents(false);
-        await window.flingVideo.setRecordingRegion(null);
-        activeRecording = null;
-        isRecording = false;
-        setPauseControlPaused(false);
-        setTimerSaved();
-        setTimeout(() => window.flingVideo.closeOverlay(), 600);
+        const savedPath = await videoControls.saveRecording(await blob.arrayBuffer(), recordedDurationMs);
+        updateTimer("Saved", 1, { canCancel: false });
+        setTimeout(() => videoControls.closeOverlay(), 600);
         console.log(`Saved recording to ${savedPath}`);
       } catch (error) {
         console.error("Could not save recording:", error);
-        await window.flingVideo.setIgnoreMouseEvents(false);
-        await window.flingVideo.setRecordingRegion(null);
-        activeRecording = null;
-        document.body.classList.remove("recording");
-        toolbar.classList.add("visible");
-        timer.classList.remove("visible");
-        recordButton.disabled = false;
-        setRecordingControlsDisabled(false);
-        setPauseControlPaused(false);
-        setStatus("Could not save recording");
-        isRecording = false;
+        await restoreSelection(recorderError ? "Recording was interrupted" : "Could not save recording");
       }
-    });
+    }, { once: true });
 
-    setRecordingControlsDisabled(false);
-    setPauseControlPaused(false);
-    activeRecording = {
-      cancel: () => stopRecording("close"),
-      redo: () => stopRecording("redo"),
-      togglePause: () => togglePauseRecording(),
-      finish: () => stopRecording("save"),
-    };
     drawFrame();
     recorder.start();
     startedAt = performance.now();
-    scheduleAutoStop();
-    timerAnimationFrame = requestAnimationFrame(updateTimerFrame);
+    desktopStream.getVideoTracks()[0].addEventListener("ended", () => stopRecording("save"), { once: true });
+    activeRecording = {
+      cancel: () => stopRecording("close"),
+      redo: () => stopRecording("redo"),
+      pause: togglePause,
+      finish: () => stopRecording("save"),
+    };
+    runTimer();
   } catch (error) {
-    cancelAnimationFrame(animationFrame);
-    cancelAnimationFrame(timerAnimationFrame);
-    clearTimeout(stopTimeout);
-    stopStream(desktopStream);
-    stopStream(microphoneStream);
-    stopStream(croppedStream);
-    await closeAudioMixer(audioMixer).catch(() => {});
-    await window.flingVideo.setIgnoreMouseEvents(false);
-    await window.flingVideo.setRecordingRegion(null);
-    activeRecording = null;
-    document.body.classList.remove("recording");
-    toolbar.classList.add("visible");
-    timer.classList.remove("visible");
-    recordButton.disabled = false;
-    setRecordingControlsDisabled(false);
-    setPauseControlPaused(false);
-    isRecording = false;
-    throw error;
+    await releaseMedia();
+    console.error("Could not start recording:", error);
+    const message = error?.message ?? "";
+    const permissionError = /NotAllowed|Permission|denied|Failed to get sources/i.test(
+      `${error?.name} ${message}`,
+    );
+    await restoreSelection(
+      /^(System audio|Microphone) unavailable/.test(message)
+        ? message
+        : permissionError ? "Screen Recording permission is needed" : "Could not start recording",
+    );
   }
 }
 
-async function handleRecordingStartError(error) {
-  console.error("Could not start recording:", error);
-  await window.flingVideo.setIgnoreMouseEvents(false);
-  await window.flingVideo.setRecordingRegion(null);
-  activeRecording = null;
-  document.body.classList.remove("recording");
-  toolbar.classList.add("visible");
-  timer.classList.remove("visible");
-  recordButton.disabled = false;
-  setRecordingControlsDisabled(false);
-  setPauseControlPaused(false);
-  const isPermissionError = /NotAllowed|Permission|denied|Failed to get sources/i.test(
-    `${error?.name} ${error?.message}`,
-  );
-  setStatus(
-    isPermissionError
-      ? "Screen Recording permission is needed"
-      : "Could not start recording",
-  );
-  isRecording = false;
-}
-
 function startRecordingFromControls() {
-  if (isDragging || isRecording || recordButton.disabled) return;
-  if (!selectedSaveLocally) return;
-
+  if (!selectedRect || isDragging || isRecording || recordButton.disabled) return;
   playRecordSound();
-  startRecording().catch(handleRecordingStartError);
+  void startRecording();
 }
 
 function isKeyboardControlTarget(target) {
@@ -757,7 +529,7 @@ function isKeyboardControlTarget(target) {
 }
 
 overlay.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0 || isRecording) return;
+  if (event.button !== 0 || isRecording || isLoadingSettings) return;
   isDragging = true;
   startX = event.clientX;
   startY = event.clientY;
@@ -789,6 +561,12 @@ overlay.addEventListener("pointerup", (event) => {
   selectedRect = rect;
   setSelectionRect(rect);
   setToolbarPosition(rect);
+});
+
+overlay.addEventListener("lostpointercapture", () => {
+  if (!isDragging) return;
+  isDragging = false;
+  selection.classList.remove("visible");
 });
 
 durationOptions.forEach((button) => {
@@ -836,6 +614,8 @@ microphoneButton.addEventListener("click", async () => {
   }
 
   microphoneButton.disabled = true;
+  isCheckingMicrophone = true;
+  updateSaveLocalControl();
   setStatus("Checking microphone...");
 
   try {
@@ -850,8 +630,10 @@ microphoneButton.addEventListener("click", async () => {
     includeMicrophone = false;
     setStatus("Microphone unavailable");
   } finally {
+    isCheckingMicrophone = false;
     microphoneButton.disabled = false;
     updateAudioControls();
+    updateSaveLocalControl();
   }
 });
 
@@ -859,20 +641,12 @@ microphoneSelect.addEventListener("change", () => {
   selectedMicrophoneId = microphoneSelect.value;
 });
 
-discardRecordingButton.addEventListener("click", () => {
-  activeRecording?.cancel();
-});
-
-redoRecordingButton.addEventListener("click", () => {
-  activeRecording?.redo();
-});
-
-pauseRecordingButton.addEventListener("click", () => {
-  activeRecording?.togglePause();
-});
-
-finishRecordingButton.addEventListener("click", () => {
-  activeRecording?.finish();
+videoControls.onAction((action) => {
+  if (activeRecording) {
+    activeRecording[action]?.();
+  } else if (action === "cancel") {
+    videoControls.closeOverlay();
+  }
 });
 
 recordButton.addEventListener("click", startRecordingFromControls);
@@ -882,8 +656,9 @@ cancelButton.addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !isRecording) {
-    window.flingVideo.closeOverlay();
+  if (event.key === "Escape") {
+    if (activeRecording) activeRecording.cancel();
+    else videoControls.closeOverlay();
   } else if (
     event.key === "Enter" &&
     !isKeyboardControlTarget(event.target)
@@ -896,12 +671,13 @@ document.addEventListener("keydown", (event) => {
 async function initializeRecordingOverlay() {
   await loadRecordingSettings();
   await populateMicrophones();
-  updateAudioControls();
-  updateSaveLocalControl();
 }
 
-initializeRecordingOverlay();
+initializeRecordingOverlay().catch(console.error).finally(() => {
+  isLoadingSettings = false;
+  updateSaveLocalControl();
+});
 
 navigator.mediaDevices.addEventListener?.("devicechange", () => {
-  populateMicrophones();
+  if (!isRecording && !isLoadingSettings && !isCheckingMicrophone) void populateMicrophones();
 });

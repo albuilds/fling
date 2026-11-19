@@ -3,68 +3,62 @@
 
 import { desktopCapturer, screen } from "electron";
 import { clampScreenshotRect } from "./geometry";
-import type { Rect, ScreenSourceInfo } from "./types";
+import type { Rect } from "./types";
 
 /** The display the mouse pointer is on, used for full-screen captures. */
 export function getCursorDisplay() {
   return screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
 }
 
-/** Finds the capture source for a display, sized to its full resolution. */
-async function getScreenSource(display: Electron.Display) {
-  const scaleFactor = display.scaleFactor || 1;
+async function getScreenSource(display: Electron.Display, thumbnailSize: Electron.Size) {
   const sources = await desktopCapturer.getSources({
     types: ["screen"],
-    thumbnailSize: {
-      width: Math.round(display.bounds.width * scaleFactor),
-      height: Math.round(display.bounds.height * scaleFactor),
-    },
+    thumbnailSize,
   });
   if (sources.length === 0) throw new Error("Failed to get sources");
 
-  // display_id links a source to its display. It can be empty on some
-  // systems, so fall back to the same position in the display list.
-  const index = screen.getAllDisplays().findIndex((item) => item.id === display.id);
-  return (
-    sources.find((source) => source.display_id === String(display.id)) ??
-    sources[index] ??
-    sources[0]
-  );
+  const matched = sources.find((source) => source.display_id === String(display.id));
+  if (matched) return matched;
+
+  // Some platforms omit display IDs. Use position only for an unidentified source.
+  const displays = screen.getAllDisplays();
+  const index = displays.findIndex((item) => item.id === display.id);
+  const fallback = sources[index];
+  if (sources.length === displays.length && fallback?.display_id === "") return fallback;
+  throw new Error("The selected display is no longer available");
 }
 
-/** Source ID and pixel size the recording overlay needs to start a stream. */
-export async function getScreenSourceInfo(
-  display: Electron.Display,
-): Promise<ScreenSourceInfo> {
-  const scaleFactor = display.scaleFactor || 1;
-  const source = await getScreenSource(display);
-
-  return {
-    id: source.id,
-    width: Math.round(display.bounds.width * scaleFactor),
-    height: Math.round(display.bounds.height * scaleFactor),
-  };
+/** Source ID the recording overlay needs to start a stream. */
+export async function getScreenSourceId(display: Electron.Display) {
+  const source = await getScreenSource(display, { width: 0, height: 0 });
+  return source.id;
 }
 
 /**
  * Captures a display and crops it to `rect`, given in points relative to the
- * display's top-left corner (including the menu bar). Points are multiplied
- * by the scale factor because a Retina display has more pixels than points.
+ * display's top-left corner (including the menu bar). The source image's
+ * actual pixel dimensions determine the crop on scaled displays.
  */
 export async function captureDisplay(display: Electron.Display, rect: Rect | null) {
   const scaleFactor = display.scaleFactor || 1;
-  const area = clampScreenshotRect(rect, {
-    x: 0,
-    y: 0,
-    width: display.bounds.width,
-    height: display.bounds.height,
+  const { width, height } = display.bounds;
+  const source = await getScreenSource(display, {
+    width: Math.round(width * scaleFactor),
+    height: Math.round(height * scaleFactor),
   });
-  const source = await getScreenSource(display);
+  if (!rect || source.thumbnail.isEmpty()) return source.thumbnail;
+
+  const area = clampScreenshotRect(rect, display.bounds);
+  const size = source.thumbnail.getSize();
+  const scaleX = size.width / width;
+  const scaleY = size.height / height;
+  const x = Math.round(area.left * scaleX);
+  const y = Math.round(area.top * scaleY);
 
   return source.thumbnail.crop({
-    x: Math.round(area.left * scaleFactor),
-    y: Math.round(area.top * scaleFactor),
-    width: Math.round(area.width * scaleFactor),
-    height: Math.round(area.height * scaleFactor),
+    x,
+    y,
+    width: Math.round((area.left + area.width) * scaleX) - x,
+    height: Math.round((area.top + area.height) * scaleY) - y,
   });
 }

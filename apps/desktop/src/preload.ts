@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { IpcRendererEvent } from "electron";
+import type { RecordingAction, RecordingTimer } from "./app/types";
 
 contextBridge.exposeInMainWorld("flingWindow", {
   minimize: () => ipcRenderer.send("window:minimize"),
@@ -14,7 +15,7 @@ contextBridge.exposeInMainWorld("flingSettings", {
 });
 
 contextBridge.exposeInMainWorld("flingAuth", {
-  get: () => ipcRenderer.invoke("auth:get"),
+  get: (refresh = true) => ipcRenderer.invoke("auth:get", refresh),
   signIn: () => ipcRenderer.invoke("auth:sign-in"),
   signOut: () => ipcRenderer.invoke("auth:sign-out"),
   onPending: (callback: (data: unknown) => void) => {
@@ -49,17 +50,6 @@ contextBridge.exposeInMainWorld("flingScreenshot", {
   closeOverlay: () => ipcRenderer.send("screenshot-overlay:close"),
   requestScreenshot: (rect: unknown, options: unknown) =>
     ipcRenderer.send("screenshot-overlay:screenshot", rect, options),
-  onPending: (callback: () => void) => {
-    const listener = () => callback();
-    ipcRenderer.on("screenshot-overlay:pending", listener);
-    return () => ipcRenderer.removeListener("screenshot-overlay:pending", listener);
-  },
-  onSaved: (callback: (savedPath: string) => void) => {
-    const listener = (_event: IpcRendererEvent, savedPath: string) =>
-      callback(savedPath);
-    ipcRenderer.on("screenshot-overlay:saved", listener);
-    return () => ipcRenderer.removeListener("screenshot-overlay:saved", listener);
-  },
   onError: (callback: (message: unknown) => void) => {
     const listener = (_event: IpcRendererEvent, message: unknown) => callback(message);
     ipcRenderer.on("screenshot-overlay:error", listener);
@@ -69,11 +59,19 @@ contextBridge.exposeInMainWorld("flingScreenshot", {
 
 contextBridge.exposeInMainWorld("flingVideo", {
   closeOverlay: () => ipcRenderer.send("video-overlay:close"),
-  setIgnoreMouseEvents: (ignore: boolean) =>
-    ipcRenderer.invoke("video-overlay:set-ignore-mouse-events", ignore),
-  setRecordingRegion: (rect: unknown) =>
-    ipcRenderer.invoke("video-overlay:set-recording-region", rect),
-  getScreenSource: () => ipcRenderer.invoke("video-overlay:get-source"),
+  start: (rect: unknown) => ipcRenderer.invoke("video-overlay:start", rect),
+  reset: () => ipcRenderer.invoke("video-overlay:reset"),
+  updateTimer: (timer: RecordingTimer) => ipcRenderer.send("video-overlay:timer", timer),
+  onAction: (callback: (action: RecordingAction) => void) => {
+    ipcRenderer.on("video-overlay:action", (_event, action: RecordingAction) => callback(action));
+  },
   saveRecording: (data: ArrayBuffer, durationMs: number) =>
     ipcRenderer.invoke("video-overlay:save", data, durationMs),
+});
+
+contextBridge.exposeInMainWorld("flingRecordingControls", {
+  sendAction: (action: RecordingAction) => ipcRenderer.send("recording-controls:action", action),
+  onTimer: (callback: (timer: RecordingTimer) => void) => {
+    ipcRenderer.on("recording-controls:timer", (_event, timer: RecordingTimer) => callback(timer));
+  },
 });

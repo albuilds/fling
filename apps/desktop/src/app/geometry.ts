@@ -1,11 +1,11 @@
 // Rectangle math for screenshots and the recording overlay.
 
-import type { RecordingRegion, Rect } from "./types";
+import type { Rect } from "./types";
 import { asRecord, isFiniteNumber } from "./validation";
 
-const RECORDING_BORDER_WIDTH = 4;
-const TIMER_WIDTH = 132;
-const TIMER_HEIGHT = 58;
+const TIMER_WIDTH = 206;
+const TIMER_HEIGHT = 78;
+const TIMER_GAP = 10;
 
 /** Returns a Rect when every field is a finite number, otherwise null. */
 export function parseRect(value: unknown): Rect | null {
@@ -19,20 +19,6 @@ export function parseRect(value: unknown): Rect | null {
     return null;
   }
   return { left, top, width, height };
-}
-
-/**
- * Accepts either a plain selection or a selection plus timer from the
- * recording overlay. Returns null for anything else.
- */
-export function parseRecordingRegion(value: unknown): RecordingRegion | Rect | null {
-  const record = asRecord(value);
-  if ("selection" in record || "timer" in record) {
-    const selection = parseRect(record.selection);
-    const timer = parseRect(record.timer);
-    return selection && timer ? { selection, timer } : null;
-  }
-  return parseRect(value);
 }
 
 /**
@@ -55,70 +41,28 @@ export function clampScreenshotRect(
   return { left, top, width: right - left, height: bottom - top };
 }
 
-function getDefaultTimerRect(bounds: Electron.Rectangle): Rect {
-  return {
-    left: Math.round((bounds.width - TIMER_WIDTH) / 2),
-    top: bounds.height - TIMER_HEIGHT - 12,
-    width: TIMER_WIDTH,
-    height: TIMER_HEIGHT,
-  };
-}
-
-/** Converts a Rect to an Electron shape rectangle clipped to the window. */
-function toShapeRect(
-  rect: Rect,
+/** Places the timer outside the selected area whenever there is room. */
+export function getRecordingControlsBounds(
+  selection: Rect,
   bounds: Electron.Rectangle,
-): Electron.Rectangle | null {
-  const x = Math.max(0, Math.min(Math.round(rect.left), bounds.width));
-  const y = Math.max(0, Math.min(Math.round(rect.top), bounds.height));
-  const right = Math.max(
-    x,
-    Math.min(Math.round(rect.left + rect.width), bounds.width),
-  );
-  const bottom = Math.max(
-    y,
-    Math.min(Math.round(rect.top + rect.height), bounds.height),
-  );
-  const width = right - x;
-  const height = bottom - y;
+): Electron.Rectangle {
+  const width = Math.min(TIMER_WIDTH, bounds.width);
+  const height = Math.min(TIMER_HEIGHT, bounds.height);
+  const right = selection.left + selection.width;
+  const bottom = selection.top + selection.height;
+  const maxX = bounds.width - width;
+  const maxY = bounds.height - height;
+  const centerX = Math.max(0, Math.min(maxX, selection.left + (selection.width - width) / 2));
+  const centerY = Math.max(0, Math.min(maxY, selection.top + (selection.height - height) / 2));
+  const preferred = [
+    { x: centerX, y: bottom + TIMER_GAP },
+    { x: centerX, y: selection.top - height - TIMER_GAP },
+    { x: right + TIMER_GAP, y: centerY },
+    { x: selection.left - width - TIMER_GAP, y: centerY },
+  ];
+  const { x, y } = preferred.find((point) =>
+    point.x >= 0 && point.x <= maxX && point.y >= 0 && point.y <= maxY,
+  ) ?? { x: centerX, y: Math.max(0, maxY - TIMER_GAP) };
 
-  if (width <= 0 || height <= 0) return null;
-  return { x, y, width, height };
-}
-
-/**
- * Builds the window shape used while recording: only the four border strips
- * around the selection and the timer stay visible and clickable, so the user
- * can keep using the apps underneath. With no region, the whole window is
- * visible again.
- *
- * The strips sit just *outside* the selection. The recorder captures exactly
- * the selection, so the frame never shows up in the video.
- */
-export function buildRecordingShape(
-  region: RecordingRegion | Rect | null,
-  bounds: Electron.Rectangle,
-): Electron.Rectangle[] {
-  if (!region) {
-    return [{ x: 0, y: 0, width: bounds.width, height: bounds.height }];
-  }
-
-  const selection = "selection" in region ? region.selection : region;
-  const timer = "timer" in region ? region.timer : getDefaultTimerRect(bounds);
-  const border = RECORDING_BORDER_WIDTH;
-  const left = Math.round(selection.left);
-  const top = Math.round(selection.top);
-  const width = Math.round(selection.width);
-  const height = Math.round(selection.height);
-
-  return [
-    // Top and bottom strips span the corners as well.
-    { left: left - border, top: top - border, width: width + border * 2, height: border },
-    { left: left - border, top: top + height, width: width + border * 2, height: border },
-    { left: left - border, top, width: border, height },
-    { left: left + width, top, width: border, height },
-    timer,
-  ]
-    .map((rect) => toShapeRect(rect, bounds))
-    .filter((rect): rect is Electron.Rectangle => rect !== null);
+  return { x: bounds.x + Math.round(x), y: bounds.y + Math.round(y), width, height };
 }

@@ -11,6 +11,7 @@ const APP_ROOT = path.join(__dirname, "..", "..");
 export const APP_PAGES = [
   "history.html",
   "index.html",
+  "recording-controls.html",
   "screenshot-overlay.html",
   "sign-in.html",
   "video-overlay.html",

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'" />
+    <title>Fling Recording Controls</title>
+    <link rel="stylesheet" href="styles/theme.css" />
+    <link rel="stylesheet" href="styles/recording-controls.css" />
+  </head>
+  <body>
+    <div class="timer" id="timer">
+      <div class="recording-controls" aria-label="Recording controls">
+        <button
+          class="recording-control danger"
+          type="button"
+          id="discardRecordingButton"
+          aria-label="Cancel recording"
+          title="Cancel recording"
+        >
+          <span class="control-icon icon-x" aria-hidden="true"></span>
+        </button>
+        <button
+          class="recording-control"
+          type="button"
+          id="redoRecordingButton"
+          disabled
+          aria-label="Redo recording"
+          title="Redo recording"
+        >
+          <svg
+            class="control-icon icon-redo"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <path
+              d="M21 3v6h-6"
+              stroke="currentColor"
+              stroke-width="2.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            ></path>
+            <path
+              d="M20.4 14.5a8.5 8.5 0 1 1-2-8.8L21 9"
+              stroke="currentColor"
+              stroke-width="2.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            ></path>
+          </svg>
+        </button>
+        <button
+          class="recording-control"
+          type="button"
+          id="pauseRecordingButton"
+          disabled
+          aria-label="Pause recording"
+          title="Pause recording"
+        >
+          <span
+            class="control-icon icon-pause"
+            id="pauseRecordingIcon"
+            aria-hidden="true"
+          ></span>
+        </button>
+        <button
+          class="recording-control success"
+          type="button"
+          id="finishRecordingButton"
+          disabled
+          aria-label="Finish recording"
+          title="Finish recording"
+        >
+          <span class="control-icon icon-check" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="timer-progress" aria-hidden="true">
+        <span class="timer-progress-fill" id="timerProgress"></span>
+      </div>
+      <span class="timer-label" id="timerText">Preparing…</span>
+    </div>
+    <script src="scripts/recording-controls.js"></script>
+  </body>
+</html>

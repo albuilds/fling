@@ -7,16 +7,17 @@
 import { app, globalShortcut } from "electron";
 import { FlingApp } from "./app/fling-app";
 
-app.whenReady().then(async () => {
-  try {
-    await new FlingApp().start();
-  } catch (error) {
-    console.error("Could not start Fling:", error);
-    app.exit(1);
-  }
-});
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.whenReady().then(async () => {
+    try {
+      await new FlingApp().start();
+    } catch (error) {
+      console.error("Could not start Fling:", error);
+      app.exit(1);
+    }
+  });
 
-// Removes shortcuts before full shutdown.
-app.on("will-quit", () => {
-  globalShortcut.unregisterAll();
-});
+  app.on("will-quit", () => globalShortcut.unregisterAll());
+}

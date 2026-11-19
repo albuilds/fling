@@ -27,6 +27,19 @@ function hardenWindow(window: BrowserWindow) {
   });
 }
 
+function closeWhenCapturePageLeaves(window: BrowserWindow) {
+  const close = () => {
+    if (!window.isDestroyed()) window.destroy();
+  };
+  window.webContents.on("render-process-gone", close);
+  window.webContents.once("did-finish-load", () => {
+    window.webContents.on("did-start-navigation", ({ isMainFrame, isSameDocument }) => {
+      // A development reload replaces the renderer that owns the capture.
+      if (isMainFrame && !isSameDocument) setImmediate(close);
+    });
+  });
+}
+
 function isTrustedWebContents(webContents: Electron.WebContents | null) {
   return isTrustedAppUrl(webContents?.getURL() ?? "");
 }
@@ -102,9 +115,13 @@ export function createOverlayWindow(
     // app. Without this, macOS uses the first click only to activate the
     // window and the button under the pointer does nothing.
     acceptFirstMouse: true,
-    webPreferences: SECURE_WEB_PREFERENCES,
+    webPreferences: {
+      ...SECURE_WEB_PREFERENCES,
+      backgroundThrottling: page !== "video-overlay.html",
+    },
   });
   hardenWindow(window);
+  closeWhenCapturePageLeaves(window);
 
   // "screen-saver" is the highest level, so the overlay sits above the menu
   // bar, Dock, and taskbar.
@@ -118,31 +135,65 @@ export function createOverlayWindow(
     window.setBounds(bounds);
   }
   window.setFullScreen(useFullscreen);
-  window.loadFile(pagePath(page));
+  void window.loadFile(pagePath(page)).catch((error) => {
+    if (window.isDestroyed()) return;
+    console.error(`Could not open ${page}:`, error);
+    window.destroy();
+  });
   window.once("ready-to-show", () => {
-    window.show();
     if (focus) {
+      window.show();
       // Fling runs in the background, so take focus explicitly to receive
       // Esc and Enter.
       if (process.platform === "darwin") app.focus({ steal: true });
       window.focus();
+    } else {
+      showWithoutFocus(window);
     }
   });
   return window;
 }
 
-/**
- * While recording, the overlay lets clicks pass through to the apps below,
- * except where its shape is still visible (the border and timer).
- */
-export function setOverlayClickThrough(window: BrowserWindow, enabled: boolean) {
-  if (enabled) {
-    window.setIgnoreMouseEvents(true, { forward: true });
-    window.setFocusable(false);
-    window.blur();
-    return;
-  }
+export function showWithoutFocus(window: BrowserWindow) {
+  // showInactive is unavailable on Wayland.
+  if (process.platform === "linux") window.show();
+  else window.showInactive();
+}
 
-  window.setFocusable(true);
-  window.setIgnoreMouseEvents(false);
+/** The recording border is visible but never intercepts clicks. */
+export function setOverlayClickThrough(window: BrowserWindow, enabled: boolean) {
+  window.setIgnoreMouseEvents(enabled);
+  if (process.platform === "darwin" || process.platform === "win32") {
+    window.setFocusable(!enabled);
+  }
+  if (enabled) window.blur();
+}
+
+/** A native hit area for the timer and buttons on top of the recording border. */
+export function createRecordingControls(bounds: Electron.Rectangle) {
+  const window = new BrowserWindow({
+    ...bounds,
+    show: false,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    acceptFirstMouse: true,
+    enableLargerThanScreen: true,
+    webPreferences: SECURE_WEB_PREFERENCES,
+  });
+  hardenWindow(window);
+  closeWhenCapturePageLeaves(window);
+  window.setAlwaysOnTop(true, "screen-saver");
+  if (process.platform === "darwin") {
+    window.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+      skipTransformProcessType: true,
+    });
+    window.setBounds(bounds);
+  }
+  return window;
 }

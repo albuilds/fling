@@ -15,6 +15,8 @@ let startX = 0;
 let startY = 0;
 let isDragging = false;
 let selectedRect = null;
+let isLoadingSettings = true;
+let isCapturing = false;
 
 const DEFAULT_SCREENSHOT_SETTINGS = {
   copyToClipboard: false,
@@ -27,6 +29,8 @@ function clamp(value, min, max) {
 }
 
 function getRect(currentX, currentY) {
+  currentX = clamp(currentX, 0, window.innerWidth);
+  currentY = clamp(currentY, 0, window.innerHeight);
   const left = Math.min(startX, currentX);
   const top = Math.min(startY, currentY);
   const width = Math.abs(currentX - startX);
@@ -78,9 +82,12 @@ function getScreenshotOptions() {
 
 function updateScreenshotButtonState() {
   screenshotButton.disabled =
-    !copyOption.checked &&
-    !saveOption.checked &&
-    !uploadOption.checked;
+    isLoadingSettings || isCapturing ||
+    (!copyOption.checked && !saveOption.checked && !uploadOption.checked);
+  copyOption.disabled = isLoadingSettings || isCapturing;
+  saveOption.disabled = isLoadingSettings || isCapturing;
+  uploadOption.disabled = isLoadingSettings || isCapturing || !canUpload;
+  cancelButton.disabled = isCapturing;
 }
 
 function isKeyboardControlTarget(target) {
@@ -93,7 +100,8 @@ function captureScreenshot() {
   if (isDragging || !selectedRect || screenshotButton.disabled) return;
 
   playScreenshotSound();
-  screenshotButton.disabled = true;
+  isCapturing = true;
+  updateScreenshotButtonState();
   status.textContent = "Capturing...";
   status.classList.add("visible");
   window.flingScreenshot?.requestScreenshot?.(
@@ -102,10 +110,12 @@ function captureScreenshot() {
   );
 }
 
+let canUpload = false;
+
 async function loadScreenshotSettings() {
   const [settings, auth] = await Promise.all([
     window.flingSettings?.get?.(),
-    window.flingAuth?.get?.(),
+    window.flingAuth?.get?.(false),
   ]);
   applyTheme(settings?.appearance?.theme ?? "system");
   const screenshotSettings = {
@@ -115,14 +125,12 @@ async function loadScreenshotSettings() {
 
   copyOption.checked = screenshotSettings.copyToClipboard;
   saveOption.checked = screenshotSettings.saveLocally;
-  const canUpload = auth?.signedIn === true;
-  uploadOption.disabled = !canUpload;
+  canUpload = auth?.signedIn === true;
   uploadOptionLabel.classList.toggle("disabled", !canUpload);
   uploadOptionLabel.title = canUpload
     ? "Upload this screenshot and create a share link"
     : "Sign in to upload screenshots";
   uploadOption.checked = canUpload && screenshotSettings.uploadToServer;
-  updateScreenshotButtonState();
 }
 
 function applyTheme(theme) {
@@ -131,7 +139,7 @@ function applyTheme(theme) {
 }
 
 overlay.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0) return;
+  if (event.button !== 0 || isCapturing || isLoadingSettings) return;
   isDragging = true;
   startX = event.clientX;
   startY = event.clientY;
@@ -165,6 +173,12 @@ overlay.addEventListener("pointerup", (event) => {
   setToolbarPosition(rect);
 });
 
+overlay.addEventListener("lostpointercapture", () => {
+  if (!isDragging) return;
+  isDragging = false;
+  selection.classList.remove("visible");
+});
+
 screenshotButton.addEventListener("click", captureScreenshot);
 
 cancelButton.addEventListener("click", () => {
@@ -177,7 +191,7 @@ uploadOption.addEventListener("change", updateScreenshotButtonState);
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
-    window.flingScreenshot?.closeOverlay?.();
+    if (!isCapturing) window.flingScreenshot?.closeOverlay?.();
   } else if (
     event.key === "Enter" &&
     !isKeyboardControlTarget(event.target)
@@ -187,21 +201,16 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-window.flingScreenshot?.onPending?.(() => {
-  status.textContent = "Capturing...";
-  status.classList.add("visible");
-});
-
-window.flingScreenshot?.onSaved?.((savedPath) => {
-  status.textContent = `Saved to ${savedPath}`;
-  status.classList.add("visible");
-});
-
 window.flingScreenshot?.onError?.((message) => {
+  isCapturing = false;
   updateScreenshotButtonState();
   status.textContent =
     typeof message === "string" && message ? message : "Could not capture the screen";
   status.classList.add("visible");
 });
 
-loadScreenshotSettings();
+updateScreenshotButtonState();
+loadScreenshotSettings().catch(console.error).finally(() => {
+  isLoadingSettings = false;
+  updateScreenshotButtonState();
+});

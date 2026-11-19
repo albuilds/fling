@@ -7,10 +7,14 @@ export type Rect = {
   height: number;
 };
 
-/** A recording area plus the on-screen timer that must stay clickable. */
-export type RecordingRegion = {
-  selection: Rect;
-  timer: Rect;
+export type RecordingAction = "cancel" | "redo" | "pause" | "finish";
+
+export type RecordingTimer = {
+  label: string;
+  progress: number;
+  paused: boolean;
+  canCancel: boolean;
+  canControl: boolean;
 };
 
 export type ScreenshotOptions = {
@@ -43,12 +47,6 @@ export type FlingSettings = {
     microphoneId: string;
   };
   shortcuts: ShortcutSettings;
-};
-
-export type ScreenSourceInfo = {
-  id: string;
-  width: number;
-  height: number;
 };
 
 export type DeviceUser = {

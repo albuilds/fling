@@ -59,8 +59,8 @@ export async function showScreenCaptureHelp() {
 }
 
 /** Returns true when capture can go ahead; otherwise shows the help dialog. */
-export async function ensureScreenCaptureAccess() {
+export function ensureScreenCaptureAccess() {
   if (mayCaptureScreen()) return true;
-  await showScreenCaptureHelp();
+  void showScreenCaptureHelp().catch(console.error);
   return false;
 }
