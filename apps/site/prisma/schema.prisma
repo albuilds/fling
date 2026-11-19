@@ -12,6 +12,7 @@ enum CaptureType {
   VIDEO
 }
 
+// One row per person. Most other tables link to it.
 model User {
   id                   String                @id @default(cuid())
   email                String                @unique
@@ -27,6 +28,7 @@ model User {
   sessions             Session[]
 }
 
+// Auth.js: links a Google login to a User.
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -46,6 +48,7 @@ model Account {
   @@unique([provider, providerAccountId])
 }
 
+// Auth.js: one row per signed-in browser.
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
@@ -54,6 +57,7 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Auth.js: email sign-in links. Required by the adapter, not used in Fling.
 model VerificationToken {
   identifier String
   token      String
@@ -62,6 +66,7 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+// A signed-in desktop app. The desktop equivalent of Session.
 model DeviceToken {
   id        String    @id @default(cuid())
   UserId    String
@@ -76,6 +81,7 @@ model DeviceToken {
   @@index([revokedAt])
 }
 
+// The desktop sign-in in progress.
 model DeviceAuthorization {
   id             String    @id @default(cuid())
   deviceCodeHash String    @unique
@@ -92,6 +98,7 @@ model DeviceAuthorization {
   @@index([expiresAt])
 }
 
+// One screenshot or video. 
 model Capture {
   id            String       @id @default(cuid())
   UserId        String
