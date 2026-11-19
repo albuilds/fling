@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/fling-logo.png" width="96" alt="Fling logo" />
+</p>
+
 # Fling
 
 Fling is a cross-platform screen-capture and sharing application built for fast screenshots and short screen recordings. The Electron desktop client captures media, saves it locally, and can upload it to a Next.js web application where users manage captures and share expiring public links.
