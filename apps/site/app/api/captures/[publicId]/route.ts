@@ -24,18 +24,31 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  // Delete the database row first. Once it is gone the share link stops
+  // working immediately, because media is only served through this app and
+  // the bucket is private. If the storage delete then fails, the leftover
+  // object is unreachable rather than leaving a broken link behind.
   try {
-    await s3.send(
-      new DeleteObjectCommand({
-        Bucket: getS3Bucket(),
-        Key: capture.storageKey,
-      }),
-    );
-    await prisma.capture.delete({ where: { id: capture.id } });
+    const deleted = await prisma.capture.deleteMany({
+      where: { id: capture.id, UserId: session.user.id },
+    });
+    if (deleted.count === 0) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
   } catch (error) {
     console.error("Could not delete capture", { captureId: capture.id, error });
     return NextResponse.json({ error: "delete_failed" }, { status: 500 });
   }
+
+  await s3
+    .send(new DeleteObjectCommand({ Bucket: getS3Bucket(), Key: capture.storageKey }))
+    .catch((error) =>
+      console.error("Could not delete capture media from storage", {
+        captureId: capture.id,
+        storageKey: capture.storageKey,
+        error,
+      }),
+    );
 
   return new Response(null, { status: 204 });
 }
