@@ -60,8 +60,8 @@ contextBridge.exposeInMainWorld("flingScreenshot", {
     ipcRenderer.on("screenshot-overlay:saved", listener);
     return () => ipcRenderer.removeListener("screenshot-overlay:saved", listener);
   },
-  onError: (callback: () => void) => {
-    const listener = () => callback();
+  onError: (callback: (message: unknown) => void) => {
+    const listener = (_event: IpcRendererEvent, message: unknown) => callback(message);
     ipcRenderer.on("screenshot-overlay:error", listener);
     return () => ipcRenderer.removeListener("screenshot-overlay:error", listener);
   },

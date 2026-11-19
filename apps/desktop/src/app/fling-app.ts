@@ -10,6 +10,7 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  screen,
   Notification,
   shell,
   Tray,
@@ -21,8 +22,13 @@ import { FlingApi } from "./fling-api";
 import { buildRecordingShape, parseRecordingRegion, parseRect } from "./geometry";
 import * as ipc from "./ipc";
 import { ICON_PATH, MAC_TRAY_ICON_PATH, pagePath } from "./paths";
+import {
+  ensureScreenCaptureAccess,
+  isPermissionError,
+  showScreenCaptureHelp,
+} from "./permissions";
 import type { AppPage } from "./paths";
-import { capturePrimaryDisplay, getPrimaryScreenSourceInfo } from "./screen-capture";
+import { captureDisplay, getCursorDisplay, getScreenSourceInfo } from "./screen-capture";
 import {
   cloneSettings,
   DEFAULT_SETTINGS,
@@ -46,12 +52,47 @@ const OVERLAY_HIDE_DELAY_MS = 160;
 /** How long the "Signed in" screen stays up before the main page opens. */
 const SIGN_IN_SUCCESS_DELAY_MS = 1400;
 
-function timestampForFileName() {
-  return new Date().toISOString().replace(/[:.]/g, "-");
+/**
+ * Local time in a readable, filename-safe form, matching macOS screenshots:
+ * "2026-11-18 at 20.51.22". The name doubles as the capture's title on the
+ * website, so it should read well.
+ */
+function timestampForFileName(date = new Date()) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const time = `${pad(date.getHours())}.${pad(date.getMinutes())}.${pad(date.getSeconds())}`;
+  return `${day} at ${time}`;
 }
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Which display each overlay window covers, by webContents id. */
+const overlayDisplays = new Map<number, Electron.Display>();
+
+function closeAll(windows: BrowserWindow[]) {
+  for (const window of [...windows]) {
+    if (!window.isDestroyed()) window.close();
+  }
+}
+
+/** The overlay window an IPC message came from, and the display it covers. */
+function getOverlaySender(event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  const display = overlayDisplays.get(event.sender.id);
+  return window && display ? { window, display } : null;
+}
+
+/** A short, human explanation of why an upload failed. */
+function describeUploadError(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (/fetch failed|ECONNREFUSED|ENOTFOUND|network/i.test(message)) {
+    return "The Fling server isn't reachable. Is it running?";
+  }
+  if (/\(401\)/.test(message)) return "This device was signed out. Sign in again.";
+  if (/\(413\)/.test(message)) return "The file is larger than the upload limit.";
+  return "Try again in a moment.";
 }
 
 export class FlingApp {
@@ -66,8 +107,14 @@ export class FlingApp {
   private settings: FlingSettings = cloneSettings(DEFAULT_SETTINGS);
   private tray: Tray | null = null;
   private win: BrowserWindow | null = null;
-  private screenshotOverlay: BrowserWindow | null = null;
-  private videoOverlay: BrowserWindow | null = null;
+  /** Screenshot overlays, one per display while selecting a region. */
+  private screenshotOverlays: BrowserWindow[] = [];
+  /** Recording overlays, one per display until a recording starts. */
+  private videoOverlays: BrowserWindow[] = [];
+  /** True between taking a screenshot and finishing its save/upload. */
+  private isCapturing = false;
+  /** True while the recording overlay is actively recording. */
+  private isRecordingVideo = false;
 
   async start() {
     app.setAppUserModelId("fling");
@@ -89,7 +136,10 @@ export class FlingApp {
     this.registerScreenshotControls();
     this.registerVideoControls();
 
+    if (process.platform === "darwin") app.dock?.hide();
     this.win = createMainWindow();
+    // Leave the Dock and taskbar whenever the window is hidden (closing hides it).
+    this.win.on("hide", () => this.setInDockAndTaskbar(false));
     this.createTray();
     this.registerGlobalShortcuts();
     if (!this.session.state.signedIn) this.showPage("sign-in.html");
@@ -99,30 +149,106 @@ export class FlingApp {
 
   private showPage(page: AppPage) {
     this.win?.loadFile(pagePath(page));
-    this.win?.show();
-    this.win?.focus();
+    this.showMainWindow();
   }
 
-  private showScreenshotOverlay() {
-    if (this.screenshotOverlay) {
-      this.screenshotOverlay.focus();
-      return;
-    }
-    this.screenshotOverlay = createOverlayWindow("screenshot-overlay.html");
-    this.screenshotOverlay.on("closed", () => {
-      this.screenshotOverlay = null;
-    });
+  private showMainWindow() {
+    if (!this.win) return;
+    this.setInDockAndTaskbar(true);
+    this.win.show();
+    if (process.platform === "darwin") app.focus({ steal: true });
+    this.win.focus();
   }
 
-  private showVideoOverlay() {
-    if (this.videoOverlay) {
-      this.videoOverlay.focus();
+  /**
+   * Fling lives in the menu bar / system tray. It only appears in the Dock
+   * (macOS) or taskbar (Windows) while its window is open.
+   */
+  private setInDockAndTaskbar(visible: boolean) {
+    if (process.platform === "darwin") {
+      if (visible) void app.dock?.show();
+      else app.dock?.hide();
+    }
+    this.win?.setSkipTaskbar(!visible);
+  }
+
+  /*
+   * Overlays: one window per display, so a region can be selected on any
+   * monitor. Only one kind is open at a time; opening one closes the other,
+   * except that an active recording is never interrupted.
+   */
+
+  private openOverlays(page: AppPage) {
+    const cursorDisplay = getCursorDisplay();
+    const overlays = screen.getAllDisplays().map((display) => {
+      const overlay = createOverlayWindow(page, display, {
+        focus: display.id === cursorDisplay.id,
+      });
+      overlayDisplays.set(overlay.webContents.id, display);
+      return overlay;
+    });
+
+    // Closing one overlay (Esc, Cancel) closes the whole set.
+    for (const overlay of overlays) {
+      const webContentsId = overlay.webContents.id;
+      overlay.on("closed", () => {
+        overlayDisplays.delete(webContentsId);
+        this.handleOverlayClosed(overlay);
+      });
+    }
+    return overlays;
+  }
+
+  private handleOverlayClosed(overlay: BrowserWindow) {
+    if (this.screenshotOverlays.includes(overlay)) {
+      this.screenshotOverlays = this.screenshotOverlays.filter((item) => item !== overlay);
+      closeAll(this.screenshotOverlays);
+    }
+    if (this.videoOverlays.includes(overlay)) {
+      this.videoOverlays = this.videoOverlays.filter((item) => item !== overlay);
+      if (this.videoOverlays.length === 0) this.isRecordingVideo = false;
+      // While recording, the other overlays are already closed on purpose.
+      if (!this.isRecordingVideo) closeAll(this.videoOverlays);
+    }
+  }
+
+  private focusOverlayUnderCursor(overlays: BrowserWindow[]) {
+    const cursorDisplay = getCursorDisplay();
+    const overlay =
+      overlays.find((item) => overlayDisplays.get(item.webContents.id)?.id === cursorDisplay.id) ??
+      overlays[0];
+    overlay?.focus();
+  }
+
+  private async showScreenshotOverlay() {
+    if (this.screenshotOverlays.length > 0) {
+      this.focusOverlayUnderCursor(this.screenshotOverlays);
       return;
     }
-    this.videoOverlay = createOverlayWindow("video-overlay.html");
-    this.videoOverlay.on("closed", () => {
-      this.videoOverlay = null;
-    });
+    if (this.isRecordingVideo || this.isCapturing) return;
+    if (!(await ensureScreenCaptureAccess())) return;
+    closeAll(this.videoOverlays);
+    this.screenshotOverlays = this.openOverlays("screenshot-overlay.html");
+  }
+
+  private async showVideoOverlay() {
+    if (this.videoOverlays.length > 0) {
+      this.focusOverlayUnderCursor(this.videoOverlays);
+      return;
+    }
+    if (this.isCapturing) return;
+    if (!(await ensureScreenCaptureAccess())) return;
+    closeAll(this.screenshotOverlays);
+    this.videoOverlays = this.openOverlays("video-overlay.html");
+  }
+
+  /** Captures the whole display the mouse pointer is on. */
+  private async captureFullScreen() {
+    if (this.isRecordingVideo) return;
+    if (!(await ensureScreenCaptureAccess())) return;
+    // A full-screen capture replaces any region selection in progress.
+    closeAll(this.videoOverlays);
+    await this.captureScreenshot(getCursorDisplay(), null, null);
   }
 
   private applyTheme() {
@@ -172,17 +298,17 @@ export class FlingApp {
         {
           label: "Capture Region",
           accelerator: this.settings.shortcuts.captureRegion ?? undefined,
-          click: () => this.showScreenshotOverlay(),
+          click: () => void this.showScreenshotOverlay(),
         },
         {
           label: "Capture Full Screen",
           accelerator: this.settings.shortcuts.captureFullscreen ?? undefined,
-          click: () => this.captureScreenshot(null, null),
+          click: () => void this.captureFullScreen(),
         },
         {
           label: "Record Region",
           accelerator: this.settings.shortcuts.recordVideo ?? undefined,
-          click: () => this.showVideoOverlay(),
+          click: () => void this.showVideoOverlay(),
         },
         { type: "separator" },
         { label: "Quit", click: () => app.exit(0) },
@@ -194,13 +320,13 @@ export class FlingApp {
     globalShortcut.unregisterAll();
     const { shortcuts } = this.settings;
     this.registerShortcut("capture region", shortcuts.captureRegion, () =>
-      this.showScreenshotOverlay(),
+      void this.showScreenshotOverlay(),
     );
     this.registerShortcut("capture full screen", shortcuts.captureFullscreen, () =>
-      this.captureScreenshot(null, null),
+      void this.captureFullScreen(),
     );
     this.registerShortcut("record video", shortcuts.recordVideo, () =>
-      this.showVideoOverlay(),
+      void this.showVideoOverlay(),
     );
   }
 
@@ -257,15 +383,21 @@ export class FlingApp {
   // ---- IPC: account ------------------------------------------------------
 
   private registerAuthControls() {
-    ipc.handle("auth:get", () => this.session.state);
+    ipc.handle("auth:get", async () => {
+      // If the server was down at startup, fill in the account name now.
+      if (this.session.state.signedIn && !this.session.state.user) {
+        await this.session.refreshUser();
+        this.updateTrayMenu();
+      }
+      return this.session.state;
+    });
     ipc.handle("auth:sign-in", () => this.signIn());
     ipc.handle("auth:sign-out", () => this.session.signOut());
   }
 
   private signIn() {
     if (this.session.isSigningIn) {
-      this.win?.show();
-      this.win?.focus();
+      this.showMainWindow();
     }
     return this.session.signIn({
       onPending: (userCode) => this.showSignInProgress(userCode),
@@ -279,8 +411,7 @@ export class FlingApp {
     if (!this.win.webContents.getURL().endsWith("/sign-in.html")) {
       await this.win.loadFile(pagePath("sign-in.html"));
     }
-    this.win.show();
-    this.win.focus();
+    this.showMainWindow();
     this.win.webContents.send("auth:pending", { userCode });
   }
 
@@ -342,79 +473,151 @@ export class FlingApp {
   // ---- Screenshots -------------------------------------------------------
 
   private registerScreenshotControls() {
-    ipc.on("screenshot-overlay:close", () => this.screenshotOverlay?.close());
-    ipc.on("screenshot-overlay:screenshot", (_event, rect, options) => {
-      void this.captureScreenshot(parseRect(rect), options);
+    ipc.on("screenshot-overlay:close", () => closeAll(this.screenshotOverlays));
+    ipc.on("screenshot-overlay:screenshot", (event, rect, options) => {
+      const sender = getOverlaySender(event);
+      if (!sender) return;
+      void this.captureScreenshot(sender.display, parseRect(rect), options, sender.window);
     });
   }
 
+  /**
+   * Captures `rect` on `display` (the whole display when rect is null).
+   * `sourceOverlay` is the overlay the region was selected in, if any.
+   */
   private async captureScreenshot(
+    display: Electron.Display,
     rect: ReturnType<typeof parseRect>,
     requestedOptions: unknown,
+    sourceOverlay?: BrowserWindow,
   ) {
-    const overlay = this.screenshotOverlay;
+    // Ignore repeated shortcut presses while a capture is still saving.
+    if (this.isCapturing) return;
+    this.isCapturing = true;
+
+    const overlays = this.screenshotOverlays.filter((item) => !item.isDestroyed());
     const options = normalizeScreenshotOptions(requestedOptions, this.settings);
+    let image: Electron.NativeImage;
 
     try {
-      if (overlay) {
-        overlay.webContents.send("screenshot-overlay:pending");
-        overlay.hide();
+      // Hide every overlay so none of them ends up in the screenshot.
+      if (overlays.length > 0) {
+        sourceOverlay?.webContents.send("screenshot-overlay:pending");
+        overlays.forEach((item) => item.hide());
         await delay(OVERLAY_HIDE_DELAY_MS);
       }
 
-      const image = await capturePrimaryDisplay(rect);
-      const png = image.toPNG();
-      const fileName = `fling-screenshot-${timestampForFileName()}.png`;
-      let savedPath = "";
-
-      if (options.copyToClipboard) {
-        if (image.isEmpty()) throw new Error("Cannot copy empty screenshot image");
-        clipboard.writeImage(image);
+      image = await captureDisplay(display, rect);
+      if (image.isEmpty()) throw new Error("The screen capture came back empty");
+    } catch (error) {
+      this.isCapturing = false;
+      console.error("Could not capture screenshot:", error);
+      const message = isPermissionError(error)
+        ? "Screen Recording permission is needed"
+        : "Could not capture the screen";
+      const visibleOverlays = overlays.filter((item) => !item.isDestroyed());
+      if (visibleOverlays.length > 0) {
+        visibleOverlays.forEach((item) => item.show());
+        sourceOverlay?.webContents.send("screenshot-overlay:error", message);
+      } else {
+        this.notify("Screenshot failed", message);
       }
+      if (isPermissionError(error)) void showScreenCaptureHelp();
+      return;
+    }
+
+    // The capture worked. Close the overlays right away so the user can keep
+    // working while the file is saved and uploaded.
+    closeAll(overlays);
+
+    try {
+      const png = image.toPNG();
+      const fileName = `Screenshot ${timestampForFileName()}.png`;
+
+      if (options.copyToClipboard) clipboard.writeImage(image);
 
       if (options.saveLocally) {
-        const folder = path.join(app.getPath("documents"), "Fling Screenshots");
-        await fs.mkdir(folder, { recursive: true });
-        savedPath = path.join(folder, fileName);
-        await fs.writeFile(savedPath, png);
+        await this.writeCaptureFile("Fling Screenshots", fileName, png);
       }
 
       if (options.uploadToServer) {
-        await this.uploadCapture(png, fileName, "image/png");
-      }
-
-      if (overlay && !overlay.isDestroyed()) {
-        overlay.webContents.send("screenshot-overlay:saved", savedPath);
-        overlay.close();
+        await this.uploadCapture(png, fileName, "image/png").catch((error) => {
+          console.error("Could not upload screenshot", error);
+          this.notify(
+            "Upload failed",
+            options.saveLocally
+              ? `Saved locally, but the upload failed. ${describeUploadError(error)}`
+              : describeUploadError(error),
+          );
+        });
       }
     } catch (error) {
-      console.error("Could not capture screenshot:", error);
-      if (overlay && !overlay.isDestroyed()) {
-        overlay.show();
-        overlay.webContents.send("screenshot-overlay:error");
+      console.error("Could not save screenshot:", error);
+      this.notify("Screenshot not saved", "Fling could not write the file.");
+    } finally {
+      this.isCapturing = false;
+    }
+  }
+
+  /** Writes a capture to ~/Documents/<folder>, never overwriting a file. */
+  private async writeCaptureFile(folderName: string, fileName: string, data: Buffer) {
+    const folder = path.join(app.getPath("documents"), folderName);
+    await fs.mkdir(folder, { recursive: true });
+
+    const { name, ext } = path.parse(fileName);
+    for (let attempt = 1; ; attempt += 1) {
+      const candidate = path.join(
+        folder,
+        attempt === 1 ? fileName : `${name} (${attempt})${ext}`,
+      );
+      try {
+        // "wx" fails if the file exists, so two captures in the same second
+        // get "(2)" instead of replacing each other.
+        await fs.writeFile(candidate, data, { flag: "wx" });
+        return candidate;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       }
     }
+  }
+
+  private notify(title: string, body: string) {
+    if (Notification.isSupported()) new Notification({ title, body }).show();
   }
 
   // ---- Recordings --------------------------------------------------------
 
   private registerVideoControls() {
-    ipc.on("video-overlay:close", () => this.videoOverlay?.close());
-
-    ipc.handle("video-overlay:set-ignore-mouse-events", (_event, ignore) => {
-      if (this.videoOverlay) setOverlayClickThrough(this.videoOverlay, ignore === true);
+    ipc.on("video-overlay:close", () => {
+      this.isRecordingVideo = false;
+      closeAll(this.videoOverlays);
     });
 
-    ipc.handle("video-overlay:set-recording-region", (_event, region) => {
-      if (!this.videoOverlay) return;
-      const shape = buildRecordingShape(
-        parseRecordingRegion(region),
-        this.videoOverlay.getBounds(),
-      );
-      this.videoOverlay.setShape(shape);
+    ipc.handle("video-overlay:set-ignore-mouse-events", (event, ignore) => {
+      const sender = getOverlaySender(event);
+      if (sender) setOverlayClickThrough(sender.window, ignore === true);
     });
 
-    ipc.handle("video-overlay:get-source", () => getPrimaryScreenSourceInfo());
+    ipc.handle("video-overlay:set-recording-region", (event, region) => {
+      const sender = getOverlaySender(event);
+      if (!sender) return;
+      const parsed = parseRecordingRegion(region);
+      // The overlay sets a region when recording starts and clears it after.
+      this.isRecordingVideo = parsed !== null;
+      if (this.isRecordingVideo) {
+        // Recording on this display: the other monitors go back to normal.
+        closeAll(this.videoOverlays.filter((item) => item !== sender.window));
+      }
+      const { width, height } = sender.display.bounds;
+      const shape = buildRecordingShape(parsed, { x: 0, y: 0, width, height });
+      sender.window.setShape(shape);
+    });
+
+    ipc.handle("video-overlay:get-source", (event) => {
+      const sender = getOverlaySender(event);
+      if (!sender) throw new Error("Unknown recording overlay");
+      return getScreenSourceInfo(sender.display);
+    });
 
     ipc.handle("video-overlay:save", (_event, data, durationMs) => {
       const bytes =
@@ -429,13 +632,9 @@ export class FlingApp {
   }
 
   private async saveRecording(data: Uint8Array, durationMs: unknown) {
-    const folder = path.join(app.getPath("documents"), "Fling Recordings");
-    await fs.mkdir(folder, { recursive: true });
-
-    const fileName = `fling-recording-${timestampForFileName()}.webm`;
-    const savedPath = path.join(folder, fileName);
+    const fileName = `Recording ${timestampForFileName()}.webm`;
     const recording = Buffer.from(data);
-    await fs.writeFile(savedPath, recording);
+    const savedPath = await this.writeCaptureFile("Fling Recordings", fileName, recording);
 
     // Use the length the recorder measured. Fall back to the time limit only
     // if the page did not send a usable value.
@@ -450,7 +649,13 @@ export class FlingApp {
       fileName,
       "video/webm",
       recordedDurationMs,
-    ).catch((error) => console.error("Could not upload recording", error));
+    ).catch((error) => {
+      console.error("Could not upload recording", error);
+      this.notify(
+        "Upload failed",
+        `The recording was saved locally, but the upload failed. ${describeUploadError(error)}`,
+      );
+    });
     return savedPath;
   }
 }

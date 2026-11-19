@@ -34,10 +34,13 @@ body.recording .toolbar {
   display: none;
 }
 
+/* While recording, the frame is drawn just outside the selection (outline
+   instead of border) so it is not part of the recorded area. */
 body.recording .selection {
   display: block;
-  border: 2px solid var(--rec);
-  outline: 0;
+  border: 0;
+  outline: 2px solid var(--rec);
+  outline-offset: 1px;
   box-shadow: none;
 }
 

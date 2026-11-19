@@ -88,7 +88,9 @@ function isKeyboardControlTarget(target) {
 }
 
 function captureScreenshot() {
-  if (isDragging || screenshotButton.disabled) return;
+  // Enter before dragging would capture the whole screen by surprise, so a
+  // region must be selected first. (Full screen has its own shortcut.)
+  if (isDragging || !selectedRect || screenshotButton.disabled) return;
 
   playScreenshotSound();
   screenshotButton.disabled = true;
@@ -195,9 +197,10 @@ window.flingScreenshot?.onSaved?.((savedPath) => {
   status.classList.add("visible");
 });
 
-window.flingScreenshot?.onError?.(() => {
-  screenshotButton.disabled = false;
-  status.textContent = "Could not save screenshot";
+window.flingScreenshot?.onError?.((message) => {
+  updateScreenshotButtonState();
+  status.textContent =
+    typeof message === "string" && message ? message : "Could not capture the screen";
   status.classList.add("visible");
 });
 

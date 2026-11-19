@@ -1,37 +1,43 @@
-// Captures images of the primary display.
+// Captures images of a display. Works with any number of monitors on macOS
+// and Windows: every function takes the display to capture.
 
 import { desktopCapturer, screen } from "electron";
 import { clampScreenshotRect } from "./geometry";
 import type { Rect, ScreenSourceInfo } from "./types";
 
-async function getPrimaryScreenSource(
-  displayId: number,
-  bounds: Electron.Rectangle,
-  scaleFactor: number,
-) {
+/** The display the mouse pointer is on, used for full-screen captures. */
+export function getCursorDisplay() {
+  return screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+}
+
+/** Finds the capture source for a display, sized to its full resolution. */
+async function getScreenSource(display: Electron.Display) {
+  const scaleFactor = display.scaleFactor || 1;
   const sources = await desktopCapturer.getSources({
     types: ["screen"],
     thumbnailSize: {
-      width: Math.round(bounds.width * scaleFactor),
-      height: Math.round(bounds.height * scaleFactor),
+      width: Math.round(display.bounds.width * scaleFactor),
+      height: Math.round(display.bounds.height * scaleFactor),
     },
   });
+  if (sources.length === 0) throw new Error("Failed to get sources");
 
+  // display_id links a source to its display. It can be empty on some
+  // systems, so fall back to the same position in the display list.
+  const index = screen.getAllDisplays().findIndex((item) => item.id === display.id);
   return (
-    sources.find((source) => source.display_id === String(displayId)) ??
+    sources.find((source) => source.display_id === String(display.id)) ??
+    sources[index] ??
     sources[0]
   );
 }
 
 /** Source ID and pixel size the recording overlay needs to start a stream. */
-export async function getPrimaryScreenSourceInfo(): Promise<ScreenSourceInfo> {
-  const display = screen.getPrimaryDisplay();
+export async function getScreenSourceInfo(
+  display: Electron.Display,
+): Promise<ScreenSourceInfo> {
   const scaleFactor = display.scaleFactor || 1;
-  const source = await getPrimaryScreenSource(
-    display.id,
-    display.bounds,
-    scaleFactor,
-  );
+  const source = await getScreenSource(display);
 
   return {
     id: source.id,
@@ -41,19 +47,19 @@ export async function getPrimaryScreenSourceInfo(): Promise<ScreenSourceInfo> {
 }
 
 /**
- * Captures the primary display and crops it to `rect` (in screen points).
- * Points are multiplied by the scale factor because a Retina display has
- * more pixels than points.
+ * Captures a display and crops it to `rect`, given in points relative to the
+ * display's top-left corner (including the menu bar). Points are multiplied
+ * by the scale factor because a Retina display has more pixels than points.
  */
-export async function capturePrimaryDisplay(rect: Rect | null) {
-  const display = screen.getPrimaryDisplay();
+export async function captureDisplay(display: Electron.Display, rect: Rect | null) {
   const scaleFactor = display.scaleFactor || 1;
-  const area = clampScreenshotRect(rect, display.bounds);
-  const source = await getPrimaryScreenSource(
-    display.id,
-    display.bounds,
-    scaleFactor,
-  );
+  const area = clampScreenshotRect(rect, {
+    x: 0,
+    y: 0,
+    width: display.bounds.width,
+    height: display.bounds.height,
+  });
+  const source = await getScreenSource(display);
 
   return source.thumbnail.crop({
     x: Math.round(area.left * scaleFactor),

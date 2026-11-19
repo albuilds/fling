@@ -91,6 +91,9 @@ function toShapeRect(
  * around the selection and the timer stay visible and clickable, so the user
  * can keep using the apps underneath. With no region, the whole window is
  * visible again.
+ *
+ * The strips sit just *outside* the selection. The recorder captures exactly
+ * the selection, so the frame never shows up in the video.
  */
 export function buildRecordingShape(
   region: RecordingRegion | Rect | null,
@@ -109,10 +112,11 @@ export function buildRecordingShape(
   const height = Math.round(selection.height);
 
   return [
-    { left, top, width, height: border },
-    { left, top: top + height - border, width, height: border },
-    { left, top, width: border, height },
-    { left: left + width - border, top, width: border, height },
+    // Top and bottom strips span the corners as well.
+    { left: left - border, top: top - border, width: width + border * 2, height: border },
+    { left: left - border, top: top + height, width: width + border * 2, height: border },
+    { left: left - border, top, width: border, height },
+    { left: left + width, top, width: border, height },
     timer,
   ]
     .map((rect) => toShapeRect(rect, bounds))

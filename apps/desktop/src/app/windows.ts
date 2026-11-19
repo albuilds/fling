@@ -1,6 +1,6 @@
 // Creates the app's windows with locked-down security settings.
 
-import { BrowserWindow, screen, session } from "electron";
+import { app, BrowserWindow, session } from "electron";
 import { isTrustedAppUrl, pagePath, PRELOAD_PATH } from "./paths";
 import type { AppPage } from "./paths";
 
@@ -67,11 +67,16 @@ export function createMainWindow() {
 }
 
 /**
- * A transparent, always-on-top window covering the primary display, used to
- * select a screenshot or recording region.
+ * A transparent, always-on-top window covering one whole display, including
+ * the macOS menu bar and the Windows taskbar, used to select a screenshot or
+ * recording region. One is created per monitor.
  */
-export function createOverlayWindow(page: AppPage) {
-  const { bounds } = screen.getPrimaryDisplay();
+export function createOverlayWindow(
+  page: AppPage,
+  display: Electron.Display,
+  { focus }: { focus: boolean },
+) {
+  const { bounds } = display;
   const useFullscreen = process.platform === "win32";
   const window = new BrowserWindow({
     x: bounds.x,
@@ -82,20 +87,41 @@ export function createOverlayWindow(page: AppPage) {
     frame: false,
     fullscreen: useFullscreen,
     transparent: true,
+    hasShadow: false,
     resizable: false,
     movable: false,
     fullscreenable: useFullscreen,
     skipTaskbar: true,
     alwaysOnTop: true,
+    // macOS normally keeps windows below the menu bar; this lets the overlay
+    // cover the full display so the top of the screen can be captured too.
+    enableLargerThanScreen: true,
     webPreferences: SECURE_WEB_PREFERENCES,
   });
   hardenWindow(window);
 
-  // "screen-saver" is the highest level, so the overlay covers the taskbar/dock.
+  // "screen-saver" is the highest level, so the overlay sits above the menu
+  // bar, Dock, and taskbar.
   window.setAlwaysOnTop(true, "screen-saver");
+  if (process.platform === "darwin") {
+    // Also appear over apps running in full-screen spaces.
+    window.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+      skipTransformProcessType: true,
+    });
+    window.setBounds(bounds);
+  }
   window.setFullScreen(useFullscreen);
   window.loadFile(pagePath(page));
-  window.once("ready-to-show", () => window.show());
+  window.once("ready-to-show", () => {
+    window.show();
+    if (focus) {
+      // Fling runs in the background, so take focus explicitly to receive
+      // Esc and Enter.
+      if (process.platform === "darwin") app.focus({ steal: true });
+      window.focus();
+    }
+  });
   return window;
 }
 

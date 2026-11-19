@@ -380,7 +380,7 @@ async function populateMicrophones() {
     return 0;
   }
 
-  microphoneSelect.add(new Option("Default microphone", ""));
+  microphoneSelect.add(new Option("Default mic", ""));
   microphones.forEach((device, index) => {
     const label = device.label || `Microphone ${index + 1}`;
     microphoneSelect.add(new Option(label, device.deviceId));
@@ -716,7 +716,14 @@ async function handleRecordingStartError(error) {
   recordButton.disabled = false;
   setRecordingControlsDisabled(false);
   setPauseControlPaused(false);
-  setStatus("Could not start recording");
+  const isPermissionError = /NotAllowed|Permission|denied|Failed to get sources/i.test(
+    `${error?.name} ${error?.message}`,
+  );
+  setStatus(
+    isPermissionError
+      ? "Screen Recording permission is needed"
+      : "Could not start recording",
+  );
   isRecording = false;
 }
 
