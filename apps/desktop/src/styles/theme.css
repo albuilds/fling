@@ -1,0 +1,131 @@
+/*
+ * Shared design tokens and fonts for every desktop page, matching the
+ * website: strictly black and white, with red only for errors and the
+ * recording indicator.
+ *
+ * The theme follows the system unless the user picks one in settings, in
+ * which case scripts set data-theme="dark" or data-theme="light" on <html>.
+ */
+
+@font-face {
+  font-family: "Geist";
+  src: url("../assets/fonts/geist.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../assets/fonts/geist-mono.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("../assets/fonts/instrument-serif.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("../assets/fonts/instrument-serif-italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+
+  --bg: #000;
+  --surface: #0a0a0a;
+  --border: #1f1f1f;
+  --border-strong: #333;
+  --text: #f4f4f2;
+  --muted: #8f8f8c;
+  --faint: #555553;
+  --inverse-bg: #f4f4f2;
+  --inverse-fg: #000;
+  --hover: rgba(255, 255, 255, 0.04);
+  --panel: rgba(0, 0, 0, 0.94);
+  --scrim: rgba(0, 0, 0, 0.5);
+  --danger: #ff5a4f;
+  --rec: #ff3b30;
+
+  --font: "Geist", -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, Menlo, Consolas, monospace;
+  --display: "Instrument Serif", Georgia, serif;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+
+    --bg: #fff;
+    --surface: #f7f7f5;
+    --border: #e6e6e3;
+    --border-strong: #cfcfcb;
+    --text: #0a0a0a;
+    --muted: #62625f;
+    --faint: #a4a4a0;
+    --inverse-bg: #0a0a0a;
+    --inverse-fg: #fff;
+    --hover: rgba(0, 0, 0, 0.035);
+    --panel: rgba(255, 255, 255, 0.96);
+    --scrim: rgba(255, 255, 255, 0.45);
+    --danger: #d4301f;
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #fff;
+  --surface: #f7f7f5;
+  --border: #e6e6e3;
+  --border-strong: #cfcfcb;
+  --text: #0a0a0a;
+  --muted: #62625f;
+  --faint: #a4a4a0;
+  --inverse-bg: #0a0a0a;
+  --inverse-fg: #fff;
+  --hover: rgba(0, 0, 0, 0.035);
+  --panel: rgba(255, 255, 255, 0.96);
+  --scrim: rgba(255, 255, 255, 0.45);
+  --danger: #d4301f;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--text);
+  color: var(--bg);
+}
+
+:focus-visible {
+  outline: 1px solid var(--text);
+  outline-offset: 2px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

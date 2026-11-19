@@ -1,49 +1,8 @@
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-:root {
-  color-scheme: dark;
-  --accent: #7c5af8;
-  --accent-hover: #8d70ff;
-  --accent-glow: rgba(124, 90, 248, 0.3);
-  --text: #ffffff;
-  --muted: rgba(255, 255, 255, 0.68);
-  --panel: rgba(16, 16, 24, 0.92);
-  --selection: rgba(124, 90, 248, 0.12);
-  --selection-border: rgba(160, 138, 255, 0.95);
-  --font: -apple-system, "Segoe UI", sans-serif;
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    color-scheme: light;
-    --accent: #6f4df2;
-    --accent-hover: #5838d6;
-    --accent-glow: rgba(111, 77, 242, 0.2);
-    --text: #292937;
-    --muted: rgba(41, 41, 55, 0.72);
-    --panel: rgba(255, 255, 255, 0.92);
-    --selection: rgba(111, 77, 242, 0.12);
-    --selection-border: rgba(111, 77, 242, 0.9);
-  }
-}
-
-:root[data-theme="light"] {
-  color-scheme: light;
-  --accent: #6f4df2;
-  --accent-hover: #5838d6;
-  --accent-glow: rgba(111, 77, 242, 0.2);
-  --text: #292937;
-  --muted: rgba(41, 41, 55, 0.72);
-  --panel: rgba(255, 255, 255, 0.92);
-  --selection: rgba(111, 77, 242, 0.12);
-  --selection-border: rgba(111, 77, 242, 0.9);
-}
+/*
+ * Screenshot overlay: a transparent full-screen window where the user drags
+ * out a region. Scripts toggle .visible on the selection, toolbar, and
+ * status, and .disabled on capture options.
+ */
 
 html,
 body {
@@ -55,12 +14,13 @@ body {
   font-family: var(--font);
   user-select: none;
   cursor: crosshair;
+  -webkit-font-smoothing: antialiased;
 }
 
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(4, 4, 8, 0.48);
+  background: var(--scrim);
 }
 
 .hint {
@@ -68,30 +28,30 @@ body {
   top: 18px;
   left: 50%;
   z-index: 2;
-  transform: translateX(-50%);
   padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  border: 1px solid var(--border-strong);
   background: var(--panel);
   color: var(--muted);
-  font-size: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
   line-height: 1;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
-  pointer-events: none;
   white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
 }
 
+/* The selection dims everything outside it with a very large shadow. */
 .selection {
   position: fixed;
   z-index: 3;
   display: none;
   min-width: 2px;
   min-height: 2px;
-  border: 2px solid var(--selection-border);
-  background: var(--selection);
-  box-shadow:
-    0 0 0 9999px rgba(4, 4, 8, 0.24),
-    0 0 0 1px rgba(255, 255, 255, 0.16) inset;
+  border: 1px dashed #fff;
+  outline: 1px solid rgba(0, 0, 0, 0.6);
+  background: transparent;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
   pointer-events: none;
 }
 
@@ -103,13 +63,16 @@ body {
 .selection::after {
   content: "";
   position: absolute;
-  background: rgba(255, 255, 255, 0.52);
+  background: #fff;
+  /* Inverts whatever is underneath, so the crosshair shows on light and dark screens. */
+  mix-blend-mode: difference;
+  opacity: 0.7;
 }
 
 .selection::before {
   top: 50%;
-  left: 0;
   right: 0;
+  left: 0;
   height: 1px;
   transform: translateY(-50%);
 }
@@ -122,17 +85,15 @@ body {
   transform: translateX(-50%);
 }
 
+/* ---- Toolbar ----------------------------------------------------------- */
+
 .toolbar {
   position: fixed;
   z-index: 4;
   display: none;
-  align-items: center;
-  gap: 8px;
-  padding: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 8px;
+  align-items: stretch;
+  border: 1px solid var(--border-strong);
   background: var(--panel);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
   cursor: default;
 }
 
@@ -140,41 +101,50 @@ body {
   display: flex;
 }
 
+.toolbar > * + * {
+  border-left: 1px solid var(--border);
+}
+
 .capture-options {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 2px;
+  align-items: stretch;
 }
 
 .capture-option {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.06);
+  gap: 7px;
+  height: 34px;
+  padding: 0 12px;
   color: var(--muted);
-  font: 600 11px/1 var(--font);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
   cursor: pointer;
+  transition: color 0.15s;
+}
+
+.capture-option + .capture-option {
+  border-left: 1px solid var(--border);
 }
 
 .capture-option:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .capture-option input {
   width: 12px;
   height: 12px;
-  accent-color: var(--accent);
+  accent-color: var(--text);
   cursor: pointer;
 }
 
+.capture-option:has(input:checked) {
+  color: var(--text);
+}
+
 .capture-option.disabled {
-  opacity: 0.42;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -183,91 +153,51 @@ body {
 }
 
 button {
-  height: 32px;
+  height: 34px;
+  padding: 0 16px;
   border: 0;
-  border-radius: 7px;
-  padding: 0 14px;
+  background: transparent;
   color: var(--text);
-  font: 600 12px/1 var(--font);
+  font: 500 12.5px/1 var(--font);
   cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .screenshot-button {
-  background: var(--accent);
-  box-shadow: 0 0 18px var(--accent-glow);
+  background: var(--text);
+  color: var(--bg);
 }
 
 .screenshot-button:hover {
-  background: var(--accent-hover);
+  background: transparent;
+  color: var(--text);
 }
 
 .screenshot-button:disabled {
-  opacity: 0.52;
+  opacity: 0.5;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
 .cancel-button {
-  background: rgba(255, 255, 255, 0.08);
   color: var(--muted);
 }
 
 .cancel-button:hover {
+  background: var(--hover);
   color: var(--text);
-  background: rgba(255, 255, 255, 0.12);
 }
 
 .status {
   display: none;
+  align-self: center;
+  padding: 0 12px;
   color: var(--muted);
-  font-size: 12px;
-  padding: 0 6px;
+  font-family: var(--mono);
+  font-size: 11px;
 }
 
 .status.visible {
   display: inline;
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) .overlay {
-    background: rgba(245, 245, 250, 0.42);
-  }
-
-  :root:not([data-theme="dark"]) .hint,
-  :root:not([data-theme="dark"]) .toolbar {
-    border-color: rgba(18, 18, 28, 0.12);
-    box-shadow: 0 16px 40px rgba(35, 33, 52, 0.16);
-  }
-
-  :root:not([data-theme="dark"]) .capture-option,
-  :root:not([data-theme="dark"]) .cancel-button {
-    background: rgba(18, 18, 28, 0.05);
-    border-color: rgba(18, 18, 28, 0.1);
-  }
-
-  :root:not([data-theme="dark"]) .capture-option:hover,
-  :root:not([data-theme="dark"]) .cancel-button:hover {
-    background: rgba(18, 18, 28, 0.08);
-  }
-}
-
-:root[data-theme="light"] .overlay {
-  background: rgba(245, 245, 250, 0.42);
-}
-
-:root[data-theme="light"] .hint,
-:root[data-theme="light"] .toolbar {
-  border-color: rgba(18, 18, 28, 0.12);
-  box-shadow: 0 16px 40px rgba(35, 33, 52, 0.16);
-}
-
-:root[data-theme="light"] .capture-option,
-:root[data-theme="light"] .cancel-button {
-  background: rgba(18, 18, 28, 0.05);
-  border-color: rgba(18, 18, 28, 0.1);
-}
-
-:root[data-theme="light"] .capture-option:hover,
-:root[data-theme="light"] .cancel-button:hover {
-  background: rgba(18, 18, 28, 0.08);
 }

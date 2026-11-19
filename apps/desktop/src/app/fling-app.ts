@@ -20,7 +20,7 @@ import { DeviceSession } from "./device-session";
 import { FlingApi } from "./fling-api";
 import { buildRecordingShape, parseRecordingRegion, parseRect } from "./geometry";
 import * as ipc from "./ipc";
-import { ICON_PATH, pagePath } from "./paths";
+import { ICON_PATH, MAC_TRAY_ICON_PATH, pagePath } from "./paths";
 import type { AppPage } from "./paths";
 import { capturePrimaryDisplay, getPrimaryScreenSourceInfo } from "./screen-capture";
 import {
@@ -132,17 +132,25 @@ export class FlingApp {
   // ---- Tray and shortcuts ------------------------------------------------
 
   private createTray() {
-    const sourceIcon = nativeImage.createFromPath(ICON_PATH);
-    const size = process.platform === "darwin" ? 18 : 20;
-    const icon = sourceIcon.isEmpty()
-      ? nativeImage.createEmpty()
-      : sourceIcon.resize({ width: size, height: size });
-    this.tray = new Tray(icon);
+    this.tray = new Tray(this.createTrayIcon());
     this.tray.setToolTip("Fling");
     this.updateTrayMenu();
     this.tray.on("click", () => {
       this.tray?.popUpContextMenu();
     });
+  }
+
+  private createTrayIcon() {
+    if (process.platform === "darwin") {
+      const icon = nativeImage.createFromPath(MAC_TRAY_ICON_PATH);
+      icon.setTemplateImage(true);
+      if (!icon.isEmpty()) return icon;
+    }
+
+    const sourceIcon = nativeImage.createFromPath(ICON_PATH);
+    return sourceIcon.isEmpty()
+      ? nativeImage.createEmpty()
+      : sourceIcon.resize({ width: 20, height: 20 });
   }
 
   private updateTrayMenu() {

@@ -20,6 +20,16 @@ export type AppPage = (typeof APP_PAGES)[number];
 
 export const PRELOAD_PATH = path.join(APP_ROOT, "dist", "preload.js");
 export const ICON_PATH = path.join(APP_ROOT, "src", "assets", "fling-logo.png");
+/**
+ * macOS menu bar icon. The "Template" suffix tells macOS to recolor it for
+ * light and dark menu bars; the @2x file is picked up automatically.
+ */
+export const MAC_TRAY_ICON_PATH = path.join(
+  APP_ROOT,
+  "src",
+  "assets",
+  "fling-trayTemplate.png",
+);
 
 export function pagePath(page: AppPage) {
   return path.join(APP_ROOT, "src", page);

@@ -1,0 +1,171 @@
+/*
+ * The window frame shared by the settings, history, and sign-in pages:
+ * a draggable title bar with the logo, window buttons, a scrolling main
+ * area, and a footer bar.
+ */
+
+html {
+  background: var(--bg);
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Title bar --------------------------------------------------------- */
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 10px 0 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  -webkit-app-region: drag;
+}
+
+header .logo-mark {
+  flex-shrink: 0;
+  color: var(--text);
+}
+
+header h1 {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+header .version {
+  margin-left: auto;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+  -webkit-app-region: no-drag;
+}
+
+header h1 + .window-controls {
+  margin-left: auto;
+}
+
+.window-control {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 30px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.window-control:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.window-control.close:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+button,
+input,
+select,
+.shortcut-input {
+  -webkit-app-region: no-drag;
+}
+
+/* ---- Main area --------------------------------------------------------- */
+
+main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.section {
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Decorative section icons are replaced by a short rule; buttons keep theirs. */
+.section-header > svg {
+  display: none;
+}
+
+.section-header::before {
+  content: "";
+  width: 14px;
+  height: 1px;
+  background: currentColor;
+}
+
+/* ---- Footer bar -------------------------------------------------------- */
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--border);
+}
+
+/* ---- Scrollbars -------------------------------------------------------- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+}
