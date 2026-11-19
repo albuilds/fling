@@ -5,6 +5,18 @@ document.querySelectorAll("[data-window-action]").forEach((button) => {
   button.addEventListener("click", () => window.flingWindow?.[button.dataset.windowAction]?.());
 });
 
+/**
+ * Electron prefixes errors from the main process with
+ * "Error invoking remote method '…': Error:". Show only the message itself.
+ */
+function cleanErrorMessage(message) {
+  const cleaned = String(message || "")
+    .replace(/^Error invoking remote method '[^']*':\s*/, "")
+    .replace(/^Error:\s*/, "")
+    .trim();
+  return cleaned || "The sign-in request could not be completed.";
+}
+
 async function startSignIn() {
   card.dataset.state = "pending";
   signInButton.disabled = true;
@@ -12,8 +24,7 @@ async function startSignIn() {
     await window.flingAuth?.signIn?.();
   } catch (error) {
     card.dataset.state = "error";
-    document.getElementById("errorCopy").textContent =
-      error?.message || "The sign-in request could not be completed.";
+    document.getElementById("errorCopy").textContent = cleanErrorMessage(error?.message);
   } finally {
     signInButton.disabled = false;
   }
@@ -32,7 +43,7 @@ window.flingAuth?.onComplete?.((data) => {
   card.dataset.state = "success";
 });
 window.flingAuth?.onError?.((data) => {
-  document.getElementById("errorCopy").textContent = data.message;
+  document.getElementById("errorCopy").textContent = cleanErrorMessage(data?.message);
   card.dataset.state = "error";
 });
 

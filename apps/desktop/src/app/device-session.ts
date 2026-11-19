@@ -68,29 +68,57 @@ export class DeviceSession {
     return this.token ? `Bearer ${this.token}` : null;
   }
 
-  /** Restores a saved token and confirms with the server that it still works. */
+  /**
+   * Restores a saved token and asks the server who it belongs to. Only a 401
+   * signs the device out: if the server is simply not running yet, the token
+   * is kept so uploads work as soon as it comes up.
+   */
   async restore() {
+    let encrypted: Buffer;
     try {
-      const encrypted = await fs.readFile(getTokenPath());
+      encrypted = await fs.readFile(getTokenPath());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        console.warn("Could not read the saved device sign-in", error);
+      }
+      return;
+    }
+
+    try {
       if (!safeStorage.isEncryptionAvailable()) return;
       this.token = safeStorage.decryptString(encrypted);
+    } catch (error) {
+      console.warn("Could not decrypt the saved device sign-in", error);
+      return;
+    }
 
-      const response = await fetch(`${this.apiBaseUrl}/api/device-auth/me`, {
+    await this.refreshUser();
+  }
+
+  /** Loads the account name for the saved token. Only a 401 signs out. */
+  async refreshUser() {
+    if (!this.token) return;
+    let response: Response;
+    try {
+      response = await fetch(`${this.apiBaseUrl}/api/device-auth/me`, {
         headers: { authorization: `Bearer ${this.token}` },
       });
-      if (!response.ok) {
-        throw new Error("Stored device session is no longer valid");
-      }
-      const result = (await response.json()) as { user: DeviceUser };
-      this.user = result.user;
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code !== "ENOENT") {
-        console.warn("Could not restore device sign-in", error);
-      }
+    } catch {
+      console.warn("Fling server unreachable; keeping the saved sign-in for now");
+      return;
+    }
+
+    if (response.status === 401) {
+      // The token was revoked or the account was deleted.
       this.token = null;
       this.user = null;
+      await fs.unlink(getTokenPath()).catch(() => undefined);
+      return;
     }
+    if (!response.ok) return;
+
+    const result = (await response.json()) as { user: DeviceUser };
+    this.user = result.user;
   }
 
   /**
@@ -156,12 +184,23 @@ export class DeviceSession {
       await sleep(authorization.interval * 1000);
     }
 
-    throw new Error("Device sign-in expired or was not approved");
+    throw new Error("The sign-in code expired before it was approved. Try again.");
+  }
+
+  /** fetch() that turns network failures into a message a person can act on. */
+  private async request(pathname: string, init?: RequestInit) {
+    try {
+      return await fetch(`${this.apiBaseUrl}${pathname}`, init);
+    } catch {
+      throw new Error(
+        `Couldn't reach the Fling server at ${this.apiBaseUrl}. Make sure it's running, then try again.`,
+      );
+    }
   }
 
   /** Asks the server for codes and checks the response before trusting it. */
   private async startAuthorization(): Promise<StartResponse> {
-    const response = await fetch(`${this.apiBaseUrl}/api/device-auth/start`, {
+    const response = await this.request("/api/device-auth/start", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ deviceName: `${process.platform} desktop` }),
@@ -193,7 +232,7 @@ export class DeviceSession {
   }
 
   private async poll(deviceCode: string): Promise<PollResponse> {
-    const response = await fetch(`${this.apiBaseUrl}/api/device-auth/poll`, {
+    const response = await this.request("/api/device-auth/poll", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ deviceCode }),
