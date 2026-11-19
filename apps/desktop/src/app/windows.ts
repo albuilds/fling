@@ -1,7 +1,7 @@
 // Creates the app's windows with locked-down security settings.
 
 import { app, BrowserWindow, session } from "electron";
-import { isTrustedAppUrl, pagePath, PRELOAD_PATH } from "./paths";
+import { ICON_PATH, isTrustedAppUrl, pagePath, PRELOAD_PATH } from "./paths";
 import type { AppPage } from "./paths";
 
 /**
@@ -55,6 +55,8 @@ export function createMainWindow() {
     show: false,
     skipTaskbar: true,
     frame: false,
+    // Taskbar and window icon on Windows and Linux (macOS uses the Dock icon).
+    icon: ICON_PATH,
     webPreferences: SECURE_WEB_PREFERENCES,
   });
   hardenWindow(window);

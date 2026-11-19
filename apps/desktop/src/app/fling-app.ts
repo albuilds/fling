@@ -119,8 +119,7 @@ export class FlingApp {
   async start() {
     app.setAppUserModelId("fling");
     if (process.platform === "darwin") {
-      const dockIcon = nativeImage.createFromPath(ICON_PATH);
-      if (!dockIcon.isEmpty()) app.dock?.setIcon(dockIcon);
+      this.applyDockIcon();
     }
     Menu.setApplicationMenu(null);
 
@@ -160,14 +159,25 @@ export class FlingApp {
     this.win.focus();
   }
 
+  private applyDockIcon() {
+    if (process.platform !== "darwin") return;
+    const icon = nativeImage.createFromPath(ICON_PATH);
+    if (!icon.isEmpty()) app.dock?.setIcon(icon);
+  }
+
   /**
    * Fling lives in the menu bar / system tray. It only appears in the Dock
    * (macOS) or taskbar (Windows) while its window is open.
    */
   private setInDockAndTaskbar(visible: boolean) {
     if (process.platform === "darwin") {
-      if (visible) void app.dock?.show();
-      else app.dock?.hide();
+      if (visible) {
+        // macOS falls back to Electron's own icon each time the Dock icon is
+        // shown again, so set the Fling icon after every show.
+        void app.dock?.show().then(() => this.applyDockIcon());
+      } else {
+        app.dock?.hide();
+      }
     }
     this.win?.setSkipTaskbar(!visible);
   }
