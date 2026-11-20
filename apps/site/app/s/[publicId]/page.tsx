@@ -166,7 +166,6 @@ export default async function SharePage({ params }: SharePageProps) {
   const mediaUrl = `/api/captures/${shareId}/content`;
   const loginUrl = `/login?callbackUrl=${encodeURIComponent(`/s/${shareId}`)}`;
   const isVideo = capture.type === "VIDEO";
-  const Icon = isVideo ? Film : ImageIcon;
 
   return (
     <div className="app">
@@ -185,7 +184,6 @@ export default async function SharePage({ params }: SharePageProps) {
         <section className="detail-heading reveal">
           <div>
             <p className="eyebrow">
-              <Icon size={14} />
               {isVideo ? "Video share" : "Screenshot share"}
             </p>
             <h1>{capture.title}</h1>
